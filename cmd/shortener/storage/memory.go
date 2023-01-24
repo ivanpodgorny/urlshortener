@@ -16,8 +16,7 @@ func NewMemory() *Memory {
 }
 
 func (m Memory) Add(_ context.Context, id string, url string) error {
-	_, exist := m.data[id]
-	if exist {
+	if _, exist := m.data[id]; exist {
 		return errors.New("key exists")
 	}
 

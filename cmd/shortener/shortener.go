@@ -19,6 +19,9 @@ func NewShortener(s Storage) *Shortener {
 	return &Shortener{storage: s}
 }
 
+// Shorten принимает строку URL, генерирует для нее случайный текстовый ID,
+// сохраняет ID и URL в Storage и возвращает сгенерированный ID.
+// Если сгенерированный ID уже существует в Storage, возвращает ошибку.
 func (s Shortener) Shorten(ctx context.Context, url string) (string, error) {
 	id, err := generateID(12)
 	if err != nil {
@@ -32,14 +35,14 @@ func (s Shortener) Shorten(ctx context.Context, url string) (string, error) {
 	return id, nil
 }
 
+// Get принимает текстовый ID и возвращает URL, сохраненный в Storage с этим ID.
 func (s Shortener) Get(ctx context.Context, id string) (string, error) {
 	return s.storage.Get(ctx, id)
 }
 
 func generateID(length int) (string, error) {
 	b := make([]byte, 32)
-	_, err := rand.Read(b)
-	if err != nil {
+	if _, err := rand.Read(b); err != nil {
 		return "", err
 	}
 

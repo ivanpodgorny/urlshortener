@@ -12,7 +12,7 @@ type Router struct {
 	routes map[string][]patternHandler
 }
 
-func NewRouter() *Router {
+func New() *Router {
 	return &Router{
 		routes: map[string][]patternHandler{},
 	}
@@ -24,6 +24,10 @@ func BadRequest(w http.ResponseWriter) {
 
 func NotAllowed(w http.ResponseWriter) {
 	http.Error(w, "405 method not allowed", http.StatusMethodNotAllowed)
+}
+
+func ServerError(w http.ResponseWriter) {
+	http.Error(w, "500 internal server error", http.StatusInternalServerError)
 }
 
 type HandlerFunc func(http.ResponseWriter, *http.Request, ...string)
