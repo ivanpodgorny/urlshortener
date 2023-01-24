@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"github.com/ivanpodgorny/urlshortener/cmd/shortener/router"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -116,7 +115,7 @@ func TestShortenURLHandler_Get(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := sendTestRequest(http.MethodGet, "/"+urlID, nil, handler.Get, urlID)
+			result := sendTestRequest(http.MethodGet, "/"+urlID, nil, handler.Get)
 			assert.Equal(t, tt.wantStatusCode, result.StatusCode)
 			if tt.wantLocation != "" {
 				assert.Equal(t, tt.wantLocation, result.Header.Get("Location"))
@@ -127,10 +126,10 @@ func TestShortenURLHandler_Get(t *testing.T) {
 	}
 }
 
-func sendTestRequest(method string, target string, body io.Reader, handler router.HandlerFunc, params ...string) *http.Response {
+func sendTestRequest(method string, target string, body io.Reader, handler http.HandlerFunc) *http.Response {
 	request := httptest.NewRequest(method, target, body)
 	w := httptest.NewRecorder()
-	handler(w, request, params...)
+	handler(w, request)
 
 	return w.Result()
 }

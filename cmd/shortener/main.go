@@ -1,8 +1,9 @@
 package main
 
 import (
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/ivanpodgorny/urlshortener/cmd/shortener/handler"
-	"github.com/ivanpodgorny/urlshortener/cmd/shortener/router"
 	"github.com/ivanpodgorny/urlshortener/cmd/shortener/storage"
 	"log"
 	"net/http"
@@ -10,13 +11,15 @@ import (
 
 func main() {
 	var (
-		r = router.New()
+		r = chi.NewRouter()
 		s = NewShortener(storage.NewMemory())
 		h = handler.NewShortenURL(s)
 	)
 
-	r.Add(http.MethodPost, "/", h.Create)
-	r.Add(http.MethodGet, `/[A-Za-z0-9_-]+`, h.Get)
+	r.Use(middleware.Recoverer)
+
+	r.Post("/", h.Create)
+	r.Get("/{id:[A-Za-z0-9_-]+}", h.Get)
 
 	log.Fatal(http.ListenAndServe(":8080", r))
 }
