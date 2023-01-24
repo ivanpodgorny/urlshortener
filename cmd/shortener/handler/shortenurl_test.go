@@ -77,10 +77,10 @@ func TestShortenURLHandler_Create(t *testing.T) {
 			if tt.wantResponseBody != "" {
 				b, err := io.ReadAll(result.Body)
 				require.NoError(t, err)
-				err = result.Body.Close()
-				require.NoError(t, err)
 				assert.Equal(t, tt.wantResponseBody, string(b[:]))
 			}
+			err := result.Body.Close()
+			require.NoError(t, err)
 		})
 	}
 }
@@ -121,6 +121,8 @@ func TestShortenURLHandler_Get(t *testing.T) {
 			if tt.wantLocation != "" {
 				assert.Equal(t, tt.wantLocation, result.Header.Get("Location"))
 			}
+			err := result.Body.Close()
+			require.NoError(t, err)
 		})
 	}
 }
