@@ -2,7 +2,7 @@ package handler
 
 import (
 	"context"
-	"github.com/ivanpodgorny/urlshortener/cmd/shortener/router"
+	"github.com/go-chi/chi/v5"
 	"io"
 	"net/http"
 	"net/url"
@@ -21,29 +21,37 @@ func NewShortenURL(s Shortener) *ShortenURL {
 	return &ShortenURL{shortener: s}
 }
 
+func BadRequest(w http.ResponseWriter) {
+	http.Error(w, "400 bad request", http.StatusBadRequest)
+}
+
+func ServerError(w http.ResponseWriter) {
+	http.Error(w, "500 internal server error", http.StatusInternalServerError)
+}
+
 // Create обрабатывает запрос на создание сокращенного URL.
 // Оригинальный URL передается в теле запроса. В теле ответа приходит сокращенный URL.
-func (h ShortenURL) Create(w http.ResponseWriter, r *http.Request, _ ...string) {
+func (h ShortenURL) Create(w http.ResponseWriter, r *http.Request) {
 	b, err := io.ReadAll(r.Body)
-	if err == nil && h.isURL(string(b[:])) {
-		id, err := h.shortener.Shorten(r.Context(), string(b[:]))
+	if err == nil && h.isURL(string(b)) {
+		id, err := h.shortener.Shorten(r.Context(), string(b))
 		if err == nil {
 			w.WriteHeader(http.StatusCreated)
 			if _, err := w.Write([]byte("http://" + r.Host + "/" + id)); err != nil {
-				router.ServerError(w)
+				ServerError(w)
 			}
 		} else {
-			router.ServerError(w)
+			ServerError(w)
 		}
 	} else {
-		router.BadRequest(w)
+		BadRequest(w)
 	}
 }
 
 // Get обрабатывает запрос на получение оригинального URL из сокращенного.
 // Возвращает ответ с кодом 307 и оригинальным URL в HTTP-заголовке Location.
-func (h ShortenURL) Get(w http.ResponseWriter, r *http.Request, params ...string) {
-	u, err := h.shortener.Get(r.Context(), params[0])
+func (h ShortenURL) Get(w http.ResponseWriter, r *http.Request) {
+	u, err := h.shortener.Get(r.Context(), chi.URLParam(r, "id"))
 	if err == nil {
 		w.Header().Set("Location", u)
 		w.WriteHeader(http.StatusTemporaryRedirect)
