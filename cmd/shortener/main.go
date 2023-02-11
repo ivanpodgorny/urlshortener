@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/ivanpodgorny/urlshortener/cmd/shortener/handler"
 	"github.com/ivanpodgorny/urlshortener/cmd/shortener/router"
 	"github.com/ivanpodgorny/urlshortener/cmd/shortener/storage"
 	"log"
@@ -9,9 +10,9 @@ import (
 
 func main() {
 	var (
-		r = router.NewRouter()
+		r = router.New()
 		s = NewShortener(storage.NewMemory())
-		h = NewHandler(s)
+		h = handler.NewShortenURL(s)
 	)
 
 	r.Add(http.MethodPost, "/", h.Create)
