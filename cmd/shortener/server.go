@@ -17,8 +17,8 @@ func Run() error {
 
 	var store service.Storage
 	store = storage.NewMemory()
-	if cfg.FileStoragePath != nil {
-		store, err = storage.NewFile(*cfg.FileStoragePath)
+	if cfg.FileStoragePath != "" {
+		store, err = storage.NewFile(cfg.FileStoragePath)
 		if err != nil {
 			return err
 		}
