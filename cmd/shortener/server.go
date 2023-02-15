@@ -1,9 +1,11 @@
 package main
 
 import (
+	"compress/flate"
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
+	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/ivanpodgorny/urlshortener/internal/app/handler"
+	"github.com/ivanpodgorny/urlshortener/internal/app/middleware"
 	"github.com/ivanpodgorny/urlshortener/internal/app/service"
 	"github.com/ivanpodgorny/urlshortener/internal/app/storage"
 	"net/http"
@@ -34,7 +36,9 @@ func Run() error {
 		h = handler.NewShortenURL(s, cfg.BaseURL)
 	)
 
-	r.Use(middleware.Recoverer)
+	r.Use(chimiddleware.Recoverer)
+	r.Use(chimiddleware.Compress(flate.BestSpeed))
+	r.Use(middleware.Decompress())
 
 	r.Post("/", h.Create)
 	r.Get("/{id:[A-Za-z0-9_-]+}", h.Get)

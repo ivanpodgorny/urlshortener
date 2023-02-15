@@ -51,6 +51,7 @@ func (h ShortenURL) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	w.Header().Set("Content-Type", "text/plain")
 	w.WriteHeader(http.StatusCreated)
 	if _, err := w.Write([]byte(h.prepareShortenURL(id))); err != nil {
 		ServerError(w)

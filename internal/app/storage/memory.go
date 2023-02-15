@@ -4,6 +4,8 @@ import (
 	"context"
 )
 
+// Memory реализует интерфейс service.Storage
+// для хранения url в памяти в виде хэш-таблицы.
 type Memory struct {
 	data map[string]string
 }

@@ -7,6 +7,8 @@ import (
 	"strings"
 )
 
+// File реализует интерфейс service.Storage
+// для хранения url в файле.
 type File struct {
 	memory     map[string]string
 	persistent *os.File
