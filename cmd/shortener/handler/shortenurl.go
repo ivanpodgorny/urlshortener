@@ -11,6 +11,7 @@ import (
 
 type ShortenURL struct {
 	shortener Shortener
+	baseURL   string
 }
 
 type Shortener interface {
@@ -18,8 +19,11 @@ type Shortener interface {
 	Get(ctx context.Context, id string) (string, error)
 }
 
-func NewShortenURL(s Shortener) *ShortenURL {
-	return &ShortenURL{shortener: s}
+func NewShortenURL(s Shortener, b string) *ShortenURL {
+	return &ShortenURL{
+		shortener: s,
+		baseURL:   b,
+	}
 }
 
 func BadRequest(w http.ResponseWriter) {
@@ -48,7 +52,7 @@ func (h ShortenURL) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusCreated)
-	if _, err := w.Write([]byte(h.prepareShortenURL(r.Host, id))); err != nil {
+	if _, err := w.Write([]byte(h.prepareShortenURL(id))); err != nil {
 		ServerError(w)
 	}
 }
@@ -84,7 +88,7 @@ func (h ShortenURL) CreateJSON(w http.ResponseWriter, r *http.Request) {
 	resp := struct {
 		URL string `json:"result"`
 	}{
-		URL: h.prepareShortenURL(r.Host, id),
+		URL: h.prepareShortenURL(id),
 	}
 	respJSON, err := json.Marshal(resp)
 	if err != nil {
@@ -120,6 +124,6 @@ func (h ShortenURL) isURL(str string) bool {
 	return err == nil && u.Scheme != "" && u.Host != ""
 }
 
-func (h ShortenURL) prepareShortenURL(host string, id string) string {
-	return "http://" + host + "/" + id
+func (h ShortenURL) prepareShortenURL(id string) string {
+	return h.baseURL + "/" + id
 }

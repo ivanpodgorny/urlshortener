@@ -33,19 +33,21 @@ func (m *ShortenerMock) Get(_ context.Context, _ string) (string, error) {
 func TestShortenURLHandler_CreateSuccess(t *testing.T) {
 	var (
 		urlID     = "1i-CBrzwyMkL"
+		baseURL   = "http://localhost"
 		shortener = &ShortenerMock{}
 	)
 
 	shortener.On("Shorten").Return(urlID, nil).Once()
 	handler := ShortenURL{
 		shortener: shortener,
+		baseURL:   baseURL,
 	}
 
 	result := sendTestRequest(http.MethodPost, "/", bytes.NewBuffer([]byte("https://ya.ru/")), handler.Create)
 	assert.Equal(t, http.StatusCreated, result.StatusCode)
 	b, err := io.ReadAll(result.Body)
 	require.NoError(t, err)
-	assert.Equal(t, "http://example.com/"+urlID, string(b[:]))
+	assert.Equal(t, baseURL+"/"+urlID, string(b[:]))
 	err = result.Body.Close()
 	require.NoError(t, err)
 	shortener.AssertExpectations(t)
@@ -92,12 +94,14 @@ func TestShortenURLHandler_CreateWithErrors(t *testing.T) {
 func TestShortenURLHandler_CreateJSONSuccess(t *testing.T) {
 	var (
 		urlID     = "1i-CBrzwyMkL"
+		baseURL   = "http://localhost"
 		shortener = &ShortenerMock{}
 	)
 
 	shortener.On("Shorten").Return(urlID, nil).Once()
 	handler := ShortenURL{
 		shortener: shortener,
+		baseURL:   baseURL,
 	}
 
 	result := sendTestRequest(http.MethodPost, "/", bytes.NewBuffer([]byte(`{"url":"https://ya.ru/"}`)), handler.CreateJSON)
@@ -110,7 +114,7 @@ func TestShortenURLHandler_CreateJSONSuccess(t *testing.T) {
 	}{}
 	err = json.Unmarshal(b, &resp)
 	require.NoError(t, err)
-	assert.Equal(t, "http://example.com/"+urlID, resp.URL)
+	assert.Equal(t, baseURL+"/"+urlID, resp.URL)
 	err = result.Body.Close()
 	require.NoError(t, err)
 	shortener.AssertExpectations(t)
@@ -226,8 +230,10 @@ func TestShortenURLHandler_isURL(t *testing.T) {
 }
 
 func TestShortenURLHandler_prepareShortenURL(t *testing.T) {
-	shortener := ShortenURL{}
-	assert.Equal(t, "http://localhost/1", shortener.prepareShortenURL("localhost", "1"))
+	shortener := ShortenURL{
+		baseURL: "http://localhost",
+	}
+	assert.Equal(t, "http://localhost/1", shortener.prepareShortenURL("1"))
 }
 
 func sendTestRequest(method string, target string, body io.Reader, handler http.HandlerFunc) *http.Response {
