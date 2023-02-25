@@ -18,8 +18,8 @@ type ShortenerMock struct {
 	mock.Mock
 }
 
-func (m *ShortenerMock) Shorten(_ context.Context, _ string) (string, error) {
-	args := m.Called()
+func (m *ShortenerMock) Shorten(_ context.Context, _, userID string) (string, error) {
+	args := m.Called(userID)
 
 	return args.String(0), args.Error(1)
 }
@@ -30,17 +30,37 @@ func (m *ShortenerMock) Get(_ context.Context, _ string) (string, error) {
 	return args.String(0), args.Error(1)
 }
 
+func (m *ShortenerMock) GetAllUser(_ context.Context, userID string) map[string]string {
+	args := m.Called(userID)
+
+	return args.Get(0).(map[string]string)
+}
+
+type AuthenticatorMock struct {
+	mock.Mock
+}
+
+func (m *AuthenticatorMock) UserIdentifier(_ *http.Request) (string, error) {
+	args := m.Called()
+
+	return args.String(0), args.Error(1)
+}
+
 func TestShortenURLHandler_CreateSuccess(t *testing.T) {
 	var (
-		urlID     = "1i-CBrzwyMkL"
-		baseURL   = "http://localhost"
-		shortener = &ShortenerMock{}
+		urlID         = "1i-CBrzwyMkL"
+		userID        = "438c4b98-fc98-45cf-ac63-c4a86fbd4ff4"
+		baseURL       = "http://localhost"
+		shortener     = &ShortenerMock{}
+		authenticator = &AuthenticatorMock{}
 	)
 
-	shortener.On("Shorten").Return(urlID, nil).Once()
+	authenticator.On("UserIdentifier").Return(userID, nil).Once()
+	shortener.On("Shorten", userID).Return(urlID, nil).Once()
 	handler := ShortenURL{
-		shortener: shortener,
-		baseURL:   baseURL,
+		shortener:     shortener,
+		baseURL:       baseURL,
+		authenticator: authenticator,
 	}
 
 	result := sendTestRequest(http.MethodPost, "/", bytes.NewBuffer([]byte("https://ya.ru/")), handler.Create)
@@ -50,14 +70,22 @@ func TestShortenURLHandler_CreateSuccess(t *testing.T) {
 	assert.Equal(t, baseURL+"/"+urlID, string(b[:]))
 	err = result.Body.Close()
 	require.NoError(t, err)
+	authenticator.AssertExpectations(t)
 	shortener.AssertExpectations(t)
 }
 
 func TestShortenURLHandler_CreateWithErrors(t *testing.T) {
-	shortener := &ShortenerMock{}
-	shortener.On("Shorten").Return("", errors.New("")).Once()
+	var (
+		userID        = "438c4b98-fc98-45cf-ac63-c4a86fbd4ff4"
+		shortener     = &ShortenerMock{}
+		authenticator = &AuthenticatorMock{}
+	)
+
+	authenticator.On("UserIdentifier").Return(userID, nil).Times(3)
+	shortener.On("Shorten", userID).Return("", errors.New("")).Once()
 	handler := ShortenURL{
-		shortener: shortener,
+		shortener:     shortener,
+		authenticator: authenticator,
 	}
 
 	tests := []struct {
@@ -88,20 +116,25 @@ func TestShortenURLHandler_CreateWithErrors(t *testing.T) {
 			require.NoError(t, err)
 		})
 	}
+	authenticator.AssertExpectations(t)
 	shortener.AssertExpectations(t)
 }
 
 func TestShortenURLHandler_CreateJSONSuccess(t *testing.T) {
 	var (
-		urlID     = "1i-CBrzwyMkL"
-		baseURL   = "http://localhost"
-		shortener = &ShortenerMock{}
+		urlID         = "1i-CBrzwyMkL"
+		userID        = "438c4b98-fc98-45cf-ac63-c4a86fbd4ff4"
+		baseURL       = "http://localhost"
+		shortener     = &ShortenerMock{}
+		authenticator = &AuthenticatorMock{}
 	)
 
-	shortener.On("Shorten").Return(urlID, nil).Once()
+	authenticator.On("UserIdentifier").Return(userID, nil).Once()
+	shortener.On("Shorten", userID).Return(urlID, nil).Once()
 	handler := ShortenURL{
-		shortener: shortener,
-		baseURL:   baseURL,
+		shortener:     shortener,
+		baseURL:       baseURL,
+		authenticator: authenticator,
 	}
 
 	result := sendTestRequest(http.MethodPost, "/", bytes.NewBuffer([]byte(`{"url":"https://ya.ru/"}`)), handler.CreateJSON)
@@ -117,14 +150,22 @@ func TestShortenURLHandler_CreateJSONSuccess(t *testing.T) {
 	assert.Equal(t, baseURL+"/"+urlID, resp.URL)
 	err = result.Body.Close()
 	require.NoError(t, err)
+	authenticator.AssertExpectations(t)
 	shortener.AssertExpectations(t)
 }
 
 func TestShortenURLHandler_CreateJSONWithErrors(t *testing.T) {
-	shortener := &ShortenerMock{}
-	shortener.On("Shorten").Return("", errors.New("")).Once()
+	var (
+		userID        = "438c4b98-fc98-45cf-ac63-c4a86fbd4ff4"
+		shortener     = &ShortenerMock{}
+		authenticator = &AuthenticatorMock{}
+	)
+
+	authenticator.On("UserIdentifier").Return(userID, nil).Times(3)
+	shortener.On("Shorten", userID).Return("", errors.New("")).Once()
 	handler := ShortenURL{
-		shortener: shortener,
+		shortener:     shortener,
+		authenticator: authenticator,
 	}
 
 	tests := []struct {
@@ -157,6 +198,7 @@ func TestShortenURLHandler_CreateJSONWithErrors(t *testing.T) {
 			require.NoError(t, err)
 		})
 	}
+	authenticator.AssertExpectations(t)
 	shortener.AssertExpectations(t)
 }
 
@@ -196,6 +238,103 @@ func TestShortenURLHandler_GetWithErrors(t *testing.T) {
 	err := result.Body.Close()
 	require.NoError(t, err)
 	shortener.AssertExpectations(t)
+}
+
+func TestShortenURL_GetAllByCurrentUserSuccess(t *testing.T) {
+	var (
+		urlID         = "1i-CBrzwyMkL"
+		url           = "https://ya.ru/"
+		urls          = map[string]string{urlID: url}
+		userID        = "438c4b98-fc98-45cf-ac63-c4a86fbd4ff4"
+		baseURL       = "http://localhost"
+		shortener     = &ShortenerMock{}
+		authenticator = &AuthenticatorMock{}
+	)
+
+	authenticator.On("UserIdentifier").Return(userID, nil).Once()
+	shortener.On("GetAllUser", userID).Return(urls, nil).Once()
+	handler := ShortenURL{
+		shortener:     shortener,
+		baseURL:       baseURL,
+		authenticator: authenticator,
+	}
+
+	result := sendTestRequest(http.MethodPost, "/", nil, handler.GetAllByCurrentUser)
+	assert.Equal(t, http.StatusOK, result.StatusCode)
+	assert.Equal(t, "application/json", result.Header.Get("Content-Type"))
+	b, err := io.ReadAll(result.Body)
+	require.NoError(t, err)
+	resp := make([]struct {
+		ShortURL    string `json:"short_url"`
+		OriginalURL string `json:"original_url"`
+	}, 0)
+	err = json.Unmarshal(b, &resp)
+	require.NoError(t, err)
+	urlData := resp[0]
+	assert.Equal(t, baseURL+"/"+urlID, urlData.ShortURL)
+	assert.Equal(t, url, urlData.OriginalURL)
+	err = result.Body.Close()
+	require.NoError(t, err)
+	authenticator.AssertExpectations(t)
+	shortener.AssertExpectations(t)
+}
+
+func TestShortenURL_GetAllByCurrentUserNoContent(t *testing.T) {
+	var (
+		urls          = map[string]string{}
+		userID        = "438c4b98-fc98-45cf-ac63-c4a86fbd4ff4"
+		shortener     = &ShortenerMock{}
+		authenticator = &AuthenticatorMock{}
+	)
+
+	authenticator.On("UserIdentifier").Return(userID, nil).Once()
+	shortener.On("GetAllUser", userID).Return(urls, nil).Once()
+	handler := ShortenURL{
+		shortener:     shortener,
+		authenticator: authenticator,
+	}
+
+	result := sendTestRequest(http.MethodPost, "/", nil, handler.GetAllByCurrentUser)
+	assert.Equal(t, http.StatusNoContent, result.StatusCode)
+	err := result.Body.Close()
+	require.NoError(t, err)
+	authenticator.AssertExpectations(t)
+	shortener.AssertExpectations(t)
+}
+
+func TestUserAuthenticationErrors(t *testing.T) {
+	authenticator := &AuthenticatorMock{}
+	authenticator.On("UserIdentifier").Return("userID", errors.New("")).Times(3)
+	handler := ShortenURL{
+		authenticator: authenticator,
+	}
+
+	tests := []struct {
+		name    string
+		handler http.HandlerFunc
+	}{
+		{
+			name:    "Create",
+			handler: handler.Create,
+		},
+		{
+			name:    "CreateJSON",
+			handler: handler.CreateJSON,
+		},
+		{
+			name:    "GetAllByCurrentUser",
+			handler: handler.GetAllByCurrentUser,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := sendTestRequest(http.MethodPost, "/", nil, tt.handler)
+			assert.Equal(t, http.StatusUnauthorized, result.StatusCode)
+			err := result.Body.Close()
+			require.NoError(t, err)
+		})
+	}
+	authenticator.AssertExpectations(t)
 }
 
 func TestShortenURLHandler_isURL(t *testing.T) {
