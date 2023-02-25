@@ -2,7 +2,6 @@ package storage
 
 import (
 	"context"
-	"errors"
 )
 
 type Memory struct {
@@ -17,7 +16,7 @@ func NewMemory() *Memory {
 
 func (m Memory) Add(_ context.Context, id string, url string) error {
 	if _, exist := m.data[id]; exist {
-		return errors.New("key exists")
+		return ErrKeyExists
 	}
 
 	m.data[id] = url
@@ -28,7 +27,7 @@ func (m Memory) Add(_ context.Context, id string, url string) error {
 func (m Memory) Get(_ context.Context, id string) (string, error) {
 	url, ok := m.data[id]
 	if !ok {
-		return "", errors.New("key not found")
+		return "", ErrKeyNotFound
 	}
 
 	return url, nil

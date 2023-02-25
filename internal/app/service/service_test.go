@@ -3,7 +3,7 @@ package service
 import (
 	"context"
 	"errors"
-	"github.com/ivanpodgorny/urlshortener/cmd/shortener/storage"
+	"github.com/ivanpodgorny/urlshortener/internal/app/storage"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"testing"
