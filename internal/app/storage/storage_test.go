@@ -24,7 +24,7 @@ func TestFile(t *testing.T) {
 	assert.NoError(t, err, "получение записи")
 	assert.Equal(t, url, stored, "получение записи")
 	_, err = s.Get(context.Background(), wrongID)
-	assert.Error(t, err, "получение несуществующей записи записи")
+	assert.Error(t, err, "получение несуществующей записи")
 	require.NoError(t, s.Close(), "не удалось закрыть файл")
 	s, err = NewFile(filename)
 	require.NoError(t, err, "не удалось прочитать файл")
