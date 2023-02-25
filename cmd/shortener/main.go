@@ -20,6 +20,7 @@ func main() {
 
 	r.Post("/", h.Create)
 	r.Get("/{id:[A-Za-z0-9_-]+}", h.Get)
+	r.Post("/api/shorten", h.CreateJSON)
 
 	log.Fatal(http.ListenAndServe(":8080", r))
 }
