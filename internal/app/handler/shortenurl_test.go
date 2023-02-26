@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"io"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 )
 
@@ -373,12 +372,4 @@ func TestShortenURLHandler_prepareShortenURL(t *testing.T) {
 		baseURL: "http://localhost",
 	}
 	assert.Equal(t, "http://localhost/1", shortener.prepareShortenURL("1"))
-}
-
-func sendTestRequest(method string, target string, body io.Reader, handler http.HandlerFunc) *http.Response {
-	request := httptest.NewRequest(method, target, body)
-	w := httptest.NewRecorder()
-	handler(w, request)
-
-	return w.Result()
 }
