@@ -98,6 +98,53 @@ func (h ShortenURL) CreateJSON(w http.ResponseWriter, r *http.Request) {
 	)
 }
 
+// CreateBatch обрабатывает запрос на создание нескольких сокращенных URL.
+// Оригинальные URL передаются в теле запроса в формате JSON
+// [{"correlation_id": "<строковый идентификатор>", "original_url": "<URL для сокращения>"}, ...].
+// В теле ответа приходит JSON формата
+// [{"correlation_id": "<строковый идентификатор>", "short_url": "<сокращённый URL>"}, ... ]  с сокращенными URL.
+func (h ShortenURL) CreateBatch(w http.ResponseWriter, r *http.Request) {
+	userID, err := h.authenticator.UserIdentifier(r)
+	if err != nil {
+		unauthorized(w)
+
+		return
+	}
+
+	req := make([]struct {
+		ID  string `json:"correlation_id"`
+		URL string `json:"original_url"`
+	}, 0)
+	if err = readJSONBody(&req, r); err != nil {
+		badRequest(w)
+
+		return
+	}
+
+	type shortenBatchItem struct {
+		ID  string `json:"correlation_id"`
+		URL string `json:"short_url"`
+	}
+	resp := make([]shortenBatchItem, 0)
+	for _, u := range req {
+		if !h.isURL(u.URL) {
+			continue
+		}
+
+		id, err := h.shortener.Shorten(r.Context(), u.URL, userID)
+		if err != nil {
+			continue
+		}
+
+		resp = append(resp, shortenBatchItem{
+			ID:  u.ID,
+			URL: h.prepareShortenURL(id),
+		})
+	}
+
+	responseAsJSON(w, resp, http.StatusCreated)
+}
+
 // Get обрабатывает запрос на получение оригинального URL из сокращенного.
 // Возвращает ответ с кодом 307 и оригинальным URL в HTTP-заголовке Location.
 func (h ShortenURL) Get(w http.ResponseWriter, r *http.Request) {

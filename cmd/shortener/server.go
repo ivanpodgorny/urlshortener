@@ -69,6 +69,7 @@ func Run() error {
 	r.Post("/", sh.Create)
 	r.Get("/{id:[A-Za-z0-9_-]+}", sh.Get)
 	r.Post("/api/shorten", sh.CreateJSON)
+	r.Post("/api/shorten/batch", sh.CreateBatch)
 	r.Get("/api/user/urls", sh.GetAllByCurrentUser)
 	r.Get("/ping", dh.Ping)
 
