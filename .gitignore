@@ -17,6 +17,9 @@ cmd/shortener/shortener
 
 # Dependency directories (remove the comment below to include it)
 vendor/
+test/
+docker/
+internal/app/storage/pg_test.go
 
 # IDEs directories
 .idea
