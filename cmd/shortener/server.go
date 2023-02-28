@@ -7,6 +7,7 @@ import (
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/ivanpodgorny/urlshortener/internal/app/handler"
 	"github.com/ivanpodgorny/urlshortener/internal/app/middleware"
+	"github.com/ivanpodgorny/urlshortener/internal/app/migrations"
 	"github.com/ivanpodgorny/urlshortener/internal/app/security"
 	"github.com/ivanpodgorny/urlshortener/internal/app/service"
 	"github.com/ivanpodgorny/urlshortener/internal/app/storage"
@@ -42,16 +43,22 @@ func Run() error {
 		err = db.Close()
 	}(db)
 
+	if cfg.DatabaseDSN != "" {
+		if err := migrations.Up(db); err != nil {
+			return err
+		}
+
+		store = storage.NewPg(db)
+	}
+
 	var (
 		r = chi.NewRouter()
-		s = service.NewShortener(store)
-		p = service.NewPinger(db)
 		a = security.NewAuthenticator(
 			security.NewCookieTokenStorage(security.NewHMACTokenCreatorParser(cfg.HMACKey)),
-			security.RequestContextUserProvider{},
+			&security.RequestContextUserProvider{},
 		)
-		sh = handler.NewShortenURL(a, s, cfg.BaseURL)
-		dh = handler.NewDatabase(p)
+		sh = handler.NewShortenURL(a, service.NewShortener(store), cfg.BaseURL)
+		dh = handler.NewDatabase(service.NewPinger(db))
 	)
 
 	r.Use(chimiddleware.Recoverer)

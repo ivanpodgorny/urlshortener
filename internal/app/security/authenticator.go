@@ -7,8 +7,8 @@ type Authenticator struct {
 	userProvider UserProvider[*http.Request, *http.Request]
 }
 
-func NewAuthenticator(s TokenStorage[*http.Request, http.ResponseWriter], p UserProvider[*http.Request, *http.Request]) Authenticator {
-	return Authenticator{
+func NewAuthenticator(s TokenStorage[*http.Request, http.ResponseWriter], p UserProvider[*http.Request, *http.Request]) *Authenticator {
+	return &Authenticator{
 		storage:      s,
 		userProvider: p,
 	}
