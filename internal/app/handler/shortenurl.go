@@ -3,9 +3,9 @@ package handler
 import (
 	"context"
 	"github.com/go-chi/chi/v5"
+	"github.com/ivanpodgorny/urlshortener/internal/app/validator"
 	"io"
 	"net/http"
-	"net/url"
 )
 
 type ShortenURL struct {
@@ -19,7 +19,7 @@ type IdentityProvider interface {
 }
 
 type Shortener interface {
-	Shorten(ctx context.Context, url string, userID string) (string, error)
+	Shorten(ctx context.Context, url string, userID string) (string, bool, error)
 	Get(ctx context.Context, id string) (string, error)
 	GetAllUser(ctx context.Context, userID string) map[string]string
 }
@@ -43,20 +43,25 @@ func (h ShortenURL) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	b, err := io.ReadAll(r.Body)
-	if err != nil || !h.isURL(string(b)) {
+	if err != nil || !h.validateURL(string(b)) {
 		badRequest(w)
 
 		return
 	}
 
-	id, err := h.shortener.Shorten(r.Context(), string(b), userID)
+	id, inserted, err := h.shortener.Shorten(r.Context(), string(b), userID)
 	if err != nil {
 		serverError(w)
 
 		return
 	}
 
-	responseAsText(w, []byte(h.prepareShortenURL(id)), http.StatusCreated)
+	status := http.StatusCreated
+	if !inserted {
+		status = http.StatusConflict
+	}
+
+	responseAsText(w, []byte(h.prepareShortenURL(id)), status)
 }
 
 // CreateJSON обрабатывает запрос на создание сокращенного URL.
@@ -74,17 +79,22 @@ func (h ShortenURL) CreateJSON(w http.ResponseWriter, r *http.Request) {
 		URL string `json:"url"`
 	}{}
 	err = readJSONBody(&req, r)
-	if err != nil || !h.isURL(req.URL) {
+	if err != nil || !h.validateURL(req.URL) {
 		badRequest(w)
 
 		return
 	}
 
-	id, err := h.shortener.Shorten(r.Context(), req.URL, userID)
+	id, inserted, err := h.shortener.Shorten(r.Context(), req.URL, userID)
 	if err != nil {
 		serverError(w)
 
 		return
+	}
+
+	status := http.StatusCreated
+	if !inserted {
+		status = http.StatusConflict
 	}
 
 	responseAsJSON(
@@ -94,7 +104,7 @@ func (h ShortenURL) CreateJSON(w http.ResponseWriter, r *http.Request) {
 		}{
 			URL: h.prepareShortenURL(id),
 		},
-		http.StatusCreated,
+		status,
 	)
 }
 
@@ -111,11 +121,18 @@ func (h ShortenURL) CreateBatch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	req := make([]struct {
+	type origBatchItem struct {
 		ID  string `json:"correlation_id"`
 		URL string `json:"original_url"`
-	}, 0)
+	}
+	req := make([]origBatchItem, 0)
 	if err = readJSONBody(&req, r); err != nil {
+		badRequest(w)
+
+		return
+	}
+
+	if valid, _ := validator.Validate[[]origBatchItem](req, validator.Size[origBatchItem](1000)); !valid {
 		badRequest(w)
 
 		return
@@ -127,11 +144,11 @@ func (h ShortenURL) CreateBatch(w http.ResponseWriter, r *http.Request) {
 	}
 	resp := make([]shortenBatchItem, 0)
 	for _, u := range req {
-		if !h.isURL(u.URL) {
+		if !h.validateURL(u.URL) {
 			continue
 		}
 
-		id, err := h.shortener.Shorten(r.Context(), u.URL, userID)
+		id, _, err := h.shortener.Shorten(r.Context(), u.URL, userID)
 		if err != nil {
 			continue
 		}
@@ -190,10 +207,10 @@ func (h ShortenURL) GetAllByCurrentUser(w http.ResponseWriter, r *http.Request) 
 	responseAsJSON(w, resp, http.StatusOK)
 }
 
-func (h ShortenURL) isURL(str string) bool {
-	u, err := url.Parse(str)
+func (h ShortenURL) validateURL(u string) bool {
+	valid, _ := validator.Validate[string](u, validator.IsURL, validator.Length(2000))
 
-	return err == nil && u.Scheme != "" && u.Host != ""
+	return valid
 }
 
 func (h ShortenURL) prepareShortenURL(id string) string {

@@ -19,7 +19,6 @@ cmd/shortener/shortener
 vendor/
 test/
 docker/
-internal/app/storage/pg_test.go
 
 # IDEs directories
 .idea

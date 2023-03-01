@@ -3,6 +3,8 @@ package storage
 import (
 	"context"
 	"database/sql"
+	"github.com/jackc/pgerrcode"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 type Pg struct {
@@ -13,10 +15,17 @@ func NewPg(db *sql.DB) *Pg {
 	return &Pg{db: db}
 }
 
-func (p *Pg) Add(ctx context.Context, id string, url string, userID string) error {
+func (p *Pg) Add(ctx context.Context, id string, url string, userID string) (string, error) {
 	_, err := p.db.ExecContext(ctx, "insert into urls (user_id, url_id, url) values ($1, $2, $3)", userID, id, url)
 
-	return err
+	if err != nil && err.(*pgconn.PgError).Code == pgerrcode.UniqueViolation {
+		storedID := ""
+		err = p.db.QueryRowContext(ctx, "select url_id from urls where url = $1", url).Scan(&storedID)
+
+		return storedID, err
+	}
+
+	return id, err
 }
 
 func (p *Pg) Get(ctx context.Context, id string) (string, error) {
