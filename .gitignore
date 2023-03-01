@@ -17,6 +17,8 @@ cmd/shortener/shortener
 
 # Dependency directories (remove the comment below to include it)
 vendor/
+test/
+docker/
 
 # IDEs directories
 .idea
