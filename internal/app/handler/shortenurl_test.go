@@ -17,8 +17,8 @@ type ShortenerMock struct {
 	mock.Mock
 }
 
-func (m *ShortenerMock) Shorten(_ context.Context, _, userID string) (string, error) {
-	args := m.Called(userID)
+func (m *ShortenerMock) Shorten(_ context.Context, url, userID string) (string, error) {
+	args := m.Called(url, userID)
 
 	return args.String(0), args.Error(1)
 }
@@ -48,6 +48,7 @@ func (m *AuthenticatorMock) UserIdentifier(_ *http.Request) (string, error) {
 func TestShortenURLHandler_CreateSuccess(t *testing.T) {
 	var (
 		urlID         = "1i-CBrzwyMkL"
+		url           = "https://ya.ru/"
 		userID        = "438c4b98-fc98-45cf-ac63-c4a86fbd4ff4"
 		baseURL       = "http://localhost"
 		shortener     = &ShortenerMock{}
@@ -55,14 +56,14 @@ func TestShortenURLHandler_CreateSuccess(t *testing.T) {
 	)
 
 	authenticator.On("UserIdentifier").Return(userID, nil).Once()
-	shortener.On("Shorten", userID).Return(urlID, nil).Once()
+	shortener.On("Shorten", url, userID).Return(urlID, nil).Once()
 	handler := ShortenURL{
 		shortener:     shortener,
 		baseURL:       baseURL,
 		authenticator: authenticator,
 	}
 
-	result := sendTestRequest(http.MethodPost, "/", bytes.NewBuffer([]byte("https://ya.ru/")), handler.Create)
+	result := sendTestRequest(http.MethodPost, "/", bytes.NewBuffer([]byte(url)), handler.Create)
 	assert.Equal(t, http.StatusCreated, result.StatusCode)
 	b, err := io.ReadAll(result.Body)
 	require.NoError(t, err)
@@ -76,12 +77,13 @@ func TestShortenURLHandler_CreateSuccess(t *testing.T) {
 func TestShortenURLHandler_CreateWithErrors(t *testing.T) {
 	var (
 		userID        = "438c4b98-fc98-45cf-ac63-c4a86fbd4ff4"
+		url           = "https://ya.ru/"
 		shortener     = &ShortenerMock{}
 		authenticator = &AuthenticatorMock{}
 	)
 
 	authenticator.On("UserIdentifier").Return(userID, nil).Times(3)
-	shortener.On("Shorten", userID).Return("", errors.New("")).Once()
+	shortener.On("Shorten", url, userID).Return("", errors.New("")).Once()
 	handler := ShortenURL{
 		shortener:     shortener,
 		authenticator: authenticator,
@@ -103,7 +105,7 @@ func TestShortenURLHandler_CreateWithErrors(t *testing.T) {
 		},
 		{
 			name:           "ошибка создания сокращенного URL",
-			body:           bytes.NewBuffer([]byte("https://ya.ru/")),
+			body:           bytes.NewBuffer([]byte(url)),
 			wantStatusCode: http.StatusInternalServerError,
 		},
 	}
@@ -122,6 +124,7 @@ func TestShortenURLHandler_CreateWithErrors(t *testing.T) {
 func TestShortenURLHandler_CreateJSONSuccess(t *testing.T) {
 	var (
 		urlID         = "1i-CBrzwyMkL"
+		url           = "https://ya.ru/"
 		userID        = "438c4b98-fc98-45cf-ac63-c4a86fbd4ff4"
 		baseURL       = "http://localhost"
 		shortener     = &ShortenerMock{}
@@ -129,14 +132,14 @@ func TestShortenURLHandler_CreateJSONSuccess(t *testing.T) {
 	)
 
 	authenticator.On("UserIdentifier").Return(userID, nil).Once()
-	shortener.On("Shorten", userID).Return(urlID, nil).Once()
+	shortener.On("Shorten", url, userID).Return(urlID, nil).Once()
 	handler := ShortenURL{
 		shortener:     shortener,
 		baseURL:       baseURL,
 		authenticator: authenticator,
 	}
 
-	result := sendTestRequest(http.MethodPost, "/", bytes.NewBuffer([]byte(`{"url":"https://ya.ru/"}`)), handler.CreateJSON)
+	result := sendTestRequest(http.MethodPost, "/", bytes.NewBuffer([]byte(`{"url":"`+url+`"}`)), handler.CreateJSON)
 	assert.Equal(t, http.StatusCreated, result.StatusCode)
 	assert.Equal(t, "application/json", result.Header.Get("Content-Type"))
 	b, err := io.ReadAll(result.Body)
@@ -156,12 +159,13 @@ func TestShortenURLHandler_CreateJSONSuccess(t *testing.T) {
 func TestShortenURLHandler_CreateJSONWithErrors(t *testing.T) {
 	var (
 		userID        = "438c4b98-fc98-45cf-ac63-c4a86fbd4ff4"
+		url           = "https://ya.ru/"
 		shortener     = &ShortenerMock{}
 		authenticator = &AuthenticatorMock{}
 	)
 
 	authenticator.On("UserIdentifier").Return(userID, nil).Times(3)
-	shortener.On("Shorten", userID).Return("", errors.New("")).Once()
+	shortener.On("Shorten", url, userID).Return("", errors.New("")).Once()
 	handler := ShortenURL{
 		shortener:     shortener,
 		authenticator: authenticator,
@@ -185,7 +189,7 @@ func TestShortenURLHandler_CreateJSONWithErrors(t *testing.T) {
 		},
 		{
 			name:           "ошибка создания сокращенного URL",
-			body:           bytes.NewBuffer([]byte(`{"url":"https://ya.ru/"}`)),
+			body:           bytes.NewBuffer([]byte(`{"url":"` + url + `"}`)),
 			wantStatusCode: http.StatusInternalServerError,
 		},
 	}
@@ -199,6 +203,83 @@ func TestShortenURLHandler_CreateJSONWithErrors(t *testing.T) {
 	}
 	authenticator.AssertExpectations(t)
 	shortener.AssertExpectations(t)
+}
+
+func TestShortenURLHandler_CreateBatchSuccess(t *testing.T) {
+	var (
+		id1           = "1"
+		id2           = "2"
+		urlID1        = "InFsfCVTdXY7cVly"
+		urlID2        = "SVp4LEsxaE1EWVMq"
+		url1          = "https://ya.ru/"
+		url2          = "https://www.google.ru/"
+		userID        = "438c4b98-fc98-45cf-ac63-c4a86fbd4ff4"
+		baseURL       = "http://localhost"
+		bodyJSON      = `[{"correlation_id":"` + id1 + `","original_url":"` + url1 + `"},{"correlation_id": "` + id2 + `","original_url":"` + url2 + `"}]`
+		shortener     = &ShortenerMock{}
+		authenticator = &AuthenticatorMock{}
+	)
+
+	authenticator.On("UserIdentifier").Return(userID, nil).Once()
+	shortener.On("Shorten", url1, userID).Return(urlID1, nil).Once()
+	shortener.On("Shorten", url2, userID).Return(urlID2, nil).Once()
+	handler := ShortenURL{
+		shortener:     shortener,
+		baseURL:       baseURL,
+		authenticator: authenticator,
+	}
+
+	result := sendTestRequest(http.MethodPost, "/", bytes.NewBuffer([]byte(bodyJSON)), handler.CreateBatch)
+	assert.Equal(t, http.StatusCreated, result.StatusCode)
+	assert.Equal(t, "application/json", result.Header.Get("Content-Type"))
+	b, err := io.ReadAll(result.Body)
+	require.NoError(t, err)
+	resp := make([]struct {
+		ID  string `json:"correlation_id"`
+		URL string `json:"short_url"`
+	}, 0)
+	err = json.Unmarshal(b, &resp)
+	require.NoError(t, err)
+
+	foundID1, foundID2 := false, false
+	for _, u := range resp {
+		if u.ID == id1 {
+			assert.Equal(t, baseURL+"/"+urlID1, u.URL, "URL не соотвествует идентификатору")
+			foundID1 = true
+
+			continue
+		}
+		if u.ID == id2 {
+			assert.Equal(t, baseURL+"/"+urlID2, u.URL, "URL не соотвествует идентификатору")
+			foundID2 = true
+		}
+	}
+	assert.True(t, foundID1, "не найден идентификатор оригинального URL")
+	assert.True(t, foundID2, "не найден идентификатор оригинального URL")
+
+	err = result.Body.Close()
+	require.NoError(t, err)
+	authenticator.AssertExpectations(t)
+	shortener.AssertExpectations(t)
+}
+
+func TestShortenURLHandler_CreateBatchError(t *testing.T) {
+	var (
+		userID        = "438c4b98-fc98-45cf-ac63-c4a86fbd4ff4"
+		baseURL       = "http://localhost"
+		authenticator = &AuthenticatorMock{}
+	)
+
+	authenticator.On("UserIdentifier").Return(userID, nil).Once()
+	handler := ShortenURL{
+		baseURL:       baseURL,
+		authenticator: authenticator,
+	}
+
+	result := sendTestRequest(http.MethodPost, "/", bytes.NewBuffer([]byte("{}")), handler.CreateBatch)
+	assert.Equal(t, http.StatusBadRequest, result.StatusCode)
+	require.NoError(t, result.Body.Close())
+	authenticator.AssertExpectations(t)
 }
 
 func TestShortenURLHandler_GetSuccess(t *testing.T) {
