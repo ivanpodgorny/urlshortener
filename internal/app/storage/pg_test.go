@@ -7,6 +7,7 @@ import (
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/DATA-DOG/go-txdb"
 	"github.com/ivanpodgorny/urlshortener/internal/app/config"
+	inerr "github.com/ivanpodgorny/urlshortener/internal/app/errors"
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5/pgconn"
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -19,7 +20,9 @@ func TestPgRealConnection(t *testing.T) {
 	var (
 		id                = "id1"
 		wrongID           = "id2"
+		idToDelete        = "id3"
 		url               = "https://ya.ru/"
+		urlToDelete       = "https://www.google.com/"
 		userID            = "438c4b98-fc98-45cf-ac63-c4a86fbd4ff4"
 		userWithoutURLsID = "02872d15-5047-406c-a989-ee1b07465169"
 		ctx               = context.Background()
@@ -47,6 +50,16 @@ func TestPgRealConnection(t *testing.T) {
 	assert.Equal(t, map[string]string{id: url}, urls, "получение URL пользователя")
 	urls = s.GetAllUser(ctx, userWithoutURLsID)
 	assert.Equal(t, map[string]string{}, urls, "получение URL пользователя, не добавлявшего URL")
+	_, _ = s.Add(ctx, idToDelete, urlToDelete, userID)
+	err = s.DeleteBatch(ctx, []string{idToDelete}, userWithoutURLsID)
+	assert.NoError(t, err, "попытка удаления чужой записи")
+	notDeletedURL, err := s.Get(ctx, idToDelete)
+	assert.NoError(t, err, "попытка удаления чужой записи")
+	assert.Equal(t, urlToDelete, notDeletedURL, "попытка удаления чужой записи")
+	err = s.DeleteBatch(ctx, []string{idToDelete}, userID)
+	assert.NoError(t, err, "удаление записи")
+	_, err = s.Get(ctx, idToDelete)
+	assert.ErrorIs(t, err, inerr.ErrURLIsDeleted, "получение удаленной записи")
 	_, err = s.Add(ctx, id, url, userID)
 	assert.Error(t, err, "добавление записи c существующим id")
 }

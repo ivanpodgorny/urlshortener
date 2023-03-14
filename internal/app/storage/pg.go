@@ -3,8 +3,11 @@ package storage
 import (
 	"context"
 	"database/sql"
+	"fmt"
+	inerr "github.com/ivanpodgorny/urlshortener/internal/app/errors"
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5/pgconn"
+	"strings"
 )
 
 type Pg struct {
@@ -29,15 +32,24 @@ func (p *Pg) Add(ctx context.Context, id string, url string, userID string) (str
 }
 
 func (p *Pg) Get(ctx context.Context, id string) (string, error) {
-	url := ""
-	err := p.db.QueryRowContext(ctx, "select url from urls where url_id = $1", id).Scan(&url)
+	var (
+		url     = ""
+		deleted = false
+	)
+	if err := p.db.QueryRowContext(ctx, "select url, deleted from urls where url_id = $1", id).Scan(&url, &deleted); err != nil {
+		return url, err
+	}
 
-	return url, err
+	if deleted {
+		return url, inerr.ErrURLIsDeleted
+	}
+
+	return url, nil
 }
 
 func (p *Pg) GetAllUser(ctx context.Context, userID string) map[string]string {
 	data := map[string]string{}
-	rows, err := p.db.QueryContext(ctx, "select url_id, url from urls where user_id = $1", userID)
+	rows, err := p.db.QueryContext(ctx, "select url_id, url from urls where user_id = $1 and deleted = false", userID)
 	if err != nil {
 		return data
 	}
@@ -64,4 +76,28 @@ func (p *Pg) GetAllUser(ctx context.Context, userID string) map[string]string {
 	}
 
 	return data
+}
+
+func (p *Pg) DeleteBatch(ctx context.Context, urlIDs []string, userID string) error {
+	var (
+		params       = []any{userID}
+		placeholders = strings.Builder{}
+	)
+	for i, urlID := range urlIDs {
+		if i != 0 {
+			placeholders.WriteString(",")
+		}
+		placeholders.WriteString(fmt.Sprintf("$%d", i+2))
+		params = append(params, urlID)
+	}
+
+	_, err := p.db.ExecContext(ctx, `
+update urls
+set deleted = true
+from (select unnest(array[`+placeholders.String()+`]) as url_id) as id_table
+where user_id = $1
+  and urls.url_id = id_table.url_id
+	`, params...)
+
+	return err
 }

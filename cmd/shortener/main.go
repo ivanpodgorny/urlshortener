@@ -30,7 +30,7 @@ func Execute() error {
 
 	var file *os.File
 	if cfg.FileStoragePath() != "" {
-		file, err = os.OpenFile(cfg.FileStoragePath(), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0600)
+		file, err = os.OpenFile(cfg.FileStoragePath(), os.O_RDWR|os.O_CREATE, 0600)
 		if err != nil {
 			return err
 		}
@@ -79,6 +79,7 @@ func Execute() error {
 	r.Post("/api/shorten", sh.CreateJSON)
 	r.Post("/api/shorten/batch", sh.CreateBatch)
 	r.Get("/api/user/urls", sh.GetAllByCurrentUser)
+	r.Delete("/api/user/urls", sh.DeleteBatch)
 	r.Get("/ping", dh.Ping)
 
 	err = http.ListenAndServe(cfg.ServerAddress(), r)

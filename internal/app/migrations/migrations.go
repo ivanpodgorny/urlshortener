@@ -20,6 +20,10 @@ func Up(db *sql.DB) error {
 				Name: "Add url unique index to urls table",
 				Func: addURLUniqueIndexToUrlsTable,
 			},
+			&migrator.MigrationNoTx{
+				Name: "Add deleted column to urls table",
+				Func: addDeletedColumnToUrlsTable,
+			},
 		),
 	)
 	if err != nil {
@@ -51,6 +55,12 @@ func addUserIDIndexToUrlsTable(db *sql.DB) error {
 
 func addURLUniqueIndexToUrlsTable(db *sql.DB) error {
 	_, err := db.Exec("alter table urls add unique (url)")
+
+	return err
+}
+
+func addDeletedColumnToUrlsTable(db *sql.DB) error {
+	_, err := db.Exec("alter table urls add deleted bool default false not null")
 
 	return err
 }

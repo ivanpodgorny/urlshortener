@@ -13,6 +13,7 @@ type Storage interface {
 	Add(ctx context.Context, id string, url string, userID string) (string, error)
 	Get(ctx context.Context, id string) (string, error)
 	GetAllUser(ctx context.Context, userID string) map[string]string
+	DeleteBatch(ctx context.Context, urlIDs []string, userID string) error
 }
 
 func NewShortener(s Storage) *Shortener {
@@ -46,4 +47,9 @@ func (s Shortener) Get(ctx context.Context, id string) (string, error) {
 // и возвращает сокращенные им URL и их ID в формате {ID: URL, ...}.
 func (s Shortener) GetAllUser(ctx context.Context, userID string) map[string]string {
 	return s.storage.GetAllUser(ctx, userID)
+}
+
+// DeleteBatch принимает массив идентификаторов URL и выполняет их удаление из Storage.
+func (s Shortener) DeleteBatch(ctx context.Context, urlIDs []string, userID string) error {
+	return s.storage.DeleteBatch(ctx, urlIDs, userID)
 }

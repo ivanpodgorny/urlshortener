@@ -3,8 +3,11 @@ package storage
 import (
 	"bufio"
 	"context"
+	inerr "github.com/ivanpodgorny/urlshortener/internal/app/errors"
+	"io"
 	"os"
 	"strings"
+	"sync"
 )
 
 const (
@@ -19,7 +22,10 @@ type Memory struct {
 	urls       map[string]string
 	userData   map[string][]string
 	persistent *os.File
+	mu         sync.RWMutex
 }
+
+const deletedFlag = "deleted"
 
 func NewMemory(file *os.File) *Memory {
 	s := Memory{
@@ -32,41 +38,54 @@ func NewMemory(file *os.File) *Memory {
 	return &s
 }
 
-func (f *Memory) Add(_ context.Context, id string, url string, userID string) (string, error) {
-	if _, exist := f.urls[id]; exist {
+func (m *Memory) Add(_ context.Context, id string, url string, userID string) (string, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if _, exist := m.urls[id]; exist {
 		return "", ErrKeyExists
 	}
 
-	if err := f.saveToPersistent(urlSectionName, id, url); err != nil {
+	if err := m.saveToPersistent(urlSectionName, id, url); err != nil {
 		return "", err
 	}
-	if err := f.saveToPersistent(userSectionName, userID, id); err != nil {
+	if err := m.saveToPersistent(userSectionName, userID, id); err != nil {
 		return "", err
 	}
-	f.urls[id] = url
-	f.userData[userID] = append(f.userData[userID], id)
+	m.urls[id] = url
+	m.userData[userID] = append(m.userData[userID], id)
 
 	return id, nil
 }
 
-func (f *Memory) Get(_ context.Context, id string) (string, error) {
-	url, ok := f.urls[id]
+func (m *Memory) Get(_ context.Context, id string) (string, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	url, ok := m.urls[id]
 	if !ok {
 		return "", ErrKeyNotFound
+	}
+
+	if url == deletedFlag {
+		return "", inerr.ErrURLIsDeleted
 	}
 
 	return url, nil
 }
 
-func (f *Memory) GetAllUser(ctx context.Context, userID string) map[string]string {
+func (m *Memory) GetAllUser(ctx context.Context, userID string) map[string]string {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
 	data := map[string]string{}
-	ids, ok := f.userData[userID]
+	ids, ok := m.userData[userID]
 	if !ok {
 		return data
 	}
 
 	for _, id := range ids {
-		url, err := f.Get(ctx, id)
+		url, err := m.Get(ctx, id)
 		if err == nil {
 			data[id] = url
 		}
@@ -75,29 +94,82 @@ func (f *Memory) GetAllUser(ctx context.Context, userID string) map[string]strin
 	return data
 }
 
-func (f *Memory) loadDataInMemory() {
-	if f.persistent == nil {
+func (m *Memory) DeleteBatch(_ context.Context, urlIDs []string, userID string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	for _, urlID := range urlIDs {
+		if !m.belongsToUser(urlID, userID) {
+			continue
+		}
+
+		m.urls[urlID] = deletedFlag
+	}
+
+	return m.renewPersistent()
+}
+
+func (m *Memory) loadDataInMemory() {
+	if m.persistent == nil {
 		return
 	}
 
-	scanner := bufio.NewScanner(f.persistent)
+	scanner := bufio.NewScanner(m.persistent)
 	for scanner.Scan() {
 		sectionAndKeyVal := strings.Split(scanner.Text(), ",")
 		switch sectionAndKeyVal[0] {
 		case urlSectionName:
-			f.urls[sectionAndKeyVal[1]] = sectionAndKeyVal[2]
+			m.urls[sectionAndKeyVal[1]] = sectionAndKeyVal[2]
 		case userSectionName:
-			f.userData[sectionAndKeyVal[1]] = append(f.userData[sectionAndKeyVal[1]], sectionAndKeyVal[2])
+			m.userData[sectionAndKeyVal[1]] = append(m.userData[sectionAndKeyVal[1]], sectionAndKeyVal[2])
 		}
 	}
 }
 
-func (f *Memory) saveToPersistent(section, key, val string) error {
-	if f.persistent == nil {
+func (m *Memory) renewPersistent() error {
+	if m.persistent == nil {
 		return nil
 	}
 
-	_, err := f.persistent.Write([]byte(section + "," + key + "," + val + "\n"))
+	if _, err := m.persistent.Seek(0, io.SeekStart); err != nil {
+		return err
+	}
+	if err := m.persistent.Truncate(0); err != nil {
+		return err
+	}
+
+	for id, url := range m.urls {
+		if err := m.saveToPersistent(urlSectionName, id, url); err != nil {
+			return err
+		}
+	}
+	for userID, ids := range m.userData {
+		for _, id := range ids {
+			if err := m.saveToPersistent(userSectionName, userID, id); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func (m *Memory) saveToPersistent(section, key, val string) error {
+	if m.persistent == nil {
+		return nil
+	}
+
+	_, err := m.persistent.Write([]byte(section + "," + key + "," + val + "\n"))
 
 	return err
+}
+
+func (m *Memory) belongsToUser(urlID, userID string) bool {
+	for _, id := range m.userData[userID] {
+		if id == urlID {
+			return true
+		}
+	}
+
+	return false
 }
