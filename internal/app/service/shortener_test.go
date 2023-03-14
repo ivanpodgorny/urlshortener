@@ -12,10 +12,10 @@ type StorageMock struct {
 	mock.Mock
 }
 
-func (m *StorageMock) Add(_ context.Context, _ string, url string, userID string) error {
+func (m *StorageMock) Add(_ context.Context, id string, url string, userID string) (string, error) {
 	args := m.Called(url, userID)
 
-	return args.Error(0)
+	return id, args.Error(0)
 }
 
 func (m *StorageMock) Get(_ context.Context, id string) (string, error) {
@@ -36,6 +36,7 @@ func TestShortener(t *testing.T) {
 		url     = "https://ya.ru/"
 		urlID   = "1i-CBrzwyMkL"
 		urls    = map[string]string{urlID: url}
+		ctx     = context.Background()
 		storage = &StorageMock{}
 	)
 
@@ -47,12 +48,13 @@ func TestShortener(t *testing.T) {
 		storage: storage,
 	}
 
-	_, err := shortener.Shorten(context.Background(), url, userID)
+	_, inserted, err := shortener.Shorten(ctx, url, userID)
 	assert.NoError(t, err)
-	savedURL, err := shortener.Get(context.Background(), urlID)
+	assert.True(t, inserted)
+	savedURL, err := shortener.Get(ctx, urlID)
 	assert.NoError(t, err)
 	assert.Equal(t, url, savedURL)
-	userURLs := shortener.GetAllUser(context.Background(), userID)
+	userURLs := shortener.GetAllUser(ctx, userID)
 	assert.Equal(t, urls, userURLs)
 	storage.AssertExpectations(t)
 }
@@ -62,6 +64,7 @@ func TestShortenerReturnsError(t *testing.T) {
 		url     = "https://ya.ru/"
 		urlID   = "1i-CBrzwyMkL"
 		userID  = "438c4b98-fc98-45cf-ac63-c4a86fbd4ff4"
+		ctx     = context.Background()
 		storage = &StorageMock{}
 	)
 
@@ -72,9 +75,9 @@ func TestShortenerReturnsError(t *testing.T) {
 		storage: storage,
 	}
 
-	_, err := shortener.Shorten(context.Background(), url, userID)
+	_, _, err := shortener.Shorten(ctx, url, userID)
 	assert.Error(t, err)
-	_, err = shortener.Get(context.Background(), urlID)
+	_, err = shortener.Get(ctx, urlID)
 	assert.Error(t, err)
 	storage.AssertExpectations(t)
 }

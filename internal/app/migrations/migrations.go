@@ -16,6 +16,10 @@ func Up(db *sql.DB) error {
 				Name: "Add user_id index to urls table",
 				Func: addUserIDIndexToUrlsTable,
 			},
+			&migrator.MigrationNoTx{
+				Name: "Add url unique index to urls table",
+				Func: addURLUniqueIndexToUrlsTable,
+			},
 		),
 	)
 	if err != nil {
@@ -41,6 +45,12 @@ create table urls
 
 func addUserIDIndexToUrlsTable(db *sql.DB) error {
 	_, err := db.Exec("create index urls_user_id_index on urls (user_id)")
+
+	return err
+}
+
+func addURLUniqueIndexToUrlsTable(db *sql.DB) error {
+	_, err := db.Exec("alter table urls add unique (url)")
 
 	return err
 }
