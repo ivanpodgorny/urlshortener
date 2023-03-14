@@ -40,6 +40,8 @@ func (s Shortener) Get(ctx context.Context, id string) (string, error) {
 	return s.storage.Get(ctx, id)
 }
 
+// GetAllUser принимает идентификатор пользователя
+// и возвращает сокращенные им URL и их ID в формате {ID: URL, ...}.
 func (s Shortener) GetAllUser(ctx context.Context, userID string) map[string]string {
 	return s.storage.GetAllUser(ctx, userID)
 }

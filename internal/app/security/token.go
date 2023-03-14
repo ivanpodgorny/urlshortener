@@ -17,7 +17,7 @@ const (
 
 var (
 	ErrIncorrectHMACSignature = errors.New("incorrect hmac signature")
-	ErrUserNotFound           = errors.New("incorrect hmac signature")
+	ErrUserNotFound           = errors.New("user not found")
 )
 
 type TokenStorage[S, D any] interface {
@@ -39,11 +39,11 @@ type CookieTokenStorage struct {
 	creatorParser TokenCreatorParser
 }
 
-func NewCookieTokenStorage(p TokenCreatorParser) CookieTokenStorage {
-	return CookieTokenStorage{creatorParser: p}
+func NewCookieTokenStorage(p TokenCreatorParser) *CookieTokenStorage {
+	return &CookieTokenStorage{creatorParser: p}
 }
 
-func (s CookieTokenStorage) Get(r *http.Request) (string, bool) {
+func (s *CookieTokenStorage) Get(r *http.Request) (string, bool) {
 	c, err := r.Cookie(userIDCookie)
 	if err != nil {
 		return "", false
@@ -57,7 +57,7 @@ func (s CookieTokenStorage) Get(r *http.Request) (string, bool) {
 	return id, true
 }
 
-func (s CookieTokenStorage) Set(id string, w http.ResponseWriter) {
+func (s *CookieTokenStorage) Set(id string, w http.ResponseWriter) {
 	http.SetCookie(w, &http.Cookie{
 		Name:  userIDCookie,
 		Value: s.creatorParser.Create(id),
@@ -68,7 +68,7 @@ func (s CookieTokenStorage) Set(id string, w http.ResponseWriter) {
 type RequestContextUserProvider struct {
 }
 
-func (t RequestContextUserProvider) Identifier(r *http.Request) (string, error) {
+func (RequestContextUserProvider) Identifier(r *http.Request) (string, error) {
 	val := r.Context().Value(userIDKey)
 	if val == nil {
 		return "", ErrUserNotFound
@@ -77,7 +77,7 @@ func (t RequestContextUserProvider) Identifier(r *http.Request) (string, error) 
 	return val.(string), nil
 }
 
-func (t RequestContextUserProvider) SetIdentifier(id string, r *http.Request) *http.Request {
+func (RequestContextUserProvider) SetIdentifier(id string, r *http.Request) *http.Request {
 	return r.WithContext(context.WithValue(r.Context(), userIDKey, id))
 }
 
@@ -85,15 +85,15 @@ type HMACTokenCreatorParser struct {
 	key string
 }
 
-func NewHMACTokenCreatorParser(key string) HMACTokenCreatorParser {
-	return HMACTokenCreatorParser{key: key}
+func NewHMACTokenCreatorParser(key string) *HMACTokenCreatorParser {
+	return &HMACTokenCreatorParser{key: key}
 }
 
-func (cp HMACTokenCreatorParser) Create(data string) string {
+func (cp *HMACTokenCreatorParser) Create(data string) string {
 	return data + "/" + hex.EncodeToString(SignHMAC([]byte(data), cp.key))
 }
 
-func (cp HMACTokenCreatorParser) Parse(token string) (string, error) {
+func (cp *HMACTokenCreatorParser) Parse(token string) (string, error) {
 	parts := strings.Split(token, "/")
 	if len(parts) < 2 {
 		return "", ErrIncorrectHMACSignature
