@@ -2,6 +2,7 @@ package main
 
 import (
 	"compress/flate"
+	"database/sql"
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/ivanpodgorny/urlshortener/internal/app/handler"
@@ -9,6 +10,7 @@ import (
 	"github.com/ivanpodgorny/urlshortener/internal/app/security"
 	"github.com/ivanpodgorny/urlshortener/internal/app/service"
 	"github.com/ivanpodgorny/urlshortener/internal/app/storage"
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"net/http"
 )
 
@@ -31,14 +33,25 @@ func Run() error {
 		}(store.(*storage.File))
 	}
 
+	db, err := sql.Open("pgx", cfg.DatabaseDSN)
+	if err != nil {
+		return err
+	}
+
+	defer func(db *sql.DB) {
+		err = db.Close()
+	}(db)
+
 	var (
 		r = chi.NewRouter()
 		s = service.NewShortener(store)
+		p = service.NewPinger(db)
 		a = security.NewAuthenticator(
 			security.NewCookieTokenStorage(security.NewHMACTokenCreatorParser(cfg.HMACKey)),
 			security.RequestContextUserProvider{},
 		)
-		h = handler.NewShortenURL(a, s, cfg.BaseURL)
+		sh = handler.NewShortenURL(a, s, cfg.BaseURL)
+		dh = handler.NewDatabase(p)
 	)
 
 	r.Use(chimiddleware.Recoverer)
@@ -46,10 +59,11 @@ func Run() error {
 	r.Use(middleware.Decompress())
 	r.Use(middleware.Authenticate(a))
 
-	r.Post("/", h.Create)
-	r.Get("/{id:[A-Za-z0-9_-]+}", h.Get)
-	r.Post("/api/shorten", h.CreateJSON)
-	r.Get("/api/user/urls", h.GetAllByCurrentUser)
+	r.Post("/", sh.Create)
+	r.Get("/{id:[A-Za-z0-9_-]+}", sh.Get)
+	r.Post("/api/shorten", sh.CreateJSON)
+	r.Get("/api/user/urls", sh.GetAllByCurrentUser)
+	r.Get("/ping", dh.Ping)
 
 	err = http.ListenAndServe(cfg.ServerAddress, r)
 

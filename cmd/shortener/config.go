@@ -10,6 +10,7 @@ type Config struct {
 	BaseURL         string `env:"BASE_URL"`
 	FileStoragePath string `env:"FILE_STORAGE_PATH"`
 	HMACKey         string `env:"HMAC_KEY"`
+	DatabaseDSN     string `env:"DATABASE_DSN"`
 }
 
 const (
@@ -23,6 +24,7 @@ func LoadConfig() (Config, error) {
 	flag.StringVar(&cfg.ServerAddress, "a", DefaultServerAddress, "адрес запуска HTTP-сервера")
 	flag.StringVar(&cfg.BaseURL, "b", DefaultBaseURL, "базовый адрес результирующего сокращённого URL")
 	flag.StringVar(&cfg.FileStoragePath, "f", "", "путь к файлу для хранения сокращенных URL")
+	flag.StringVar(&cfg.DatabaseDSN, "d", "", "адрес подключения к PostgreSQL")
 	flag.Parse()
 
 	err := env.Parse(&cfg)
