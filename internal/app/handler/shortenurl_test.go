@@ -5,12 +5,14 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	inerr "github.com/ivanpodgorny/urlshortener/internal/app/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"io"
 	"net/http"
 	"testing"
+	"time"
 )
 
 type ShortenerMock struct {
@@ -33,6 +35,12 @@ func (m *ShortenerMock) GetAllUser(_ context.Context, userID string) map[string]
 	args := m.Called(userID)
 
 	return args.Get(0).(map[string]string)
+}
+
+func (m *ShortenerMock) DeleteBatch(_ context.Context, urlIDs []string, userID string) error {
+	args := m.Called(urlIDs, userID)
+
+	return args.Error(0)
 }
 
 type AuthenticatorMock struct {
@@ -347,6 +355,24 @@ func TestShortenURLHandler_GetSuccess(t *testing.T) {
 	shortener.AssertExpectations(t)
 }
 
+func TestShortenURLHandler_GetDeleted(t *testing.T) {
+	var (
+		urlID     = "1i-CBrzwyMkL"
+		shortener = &ShortenerMock{}
+	)
+
+	shortener.On("Get").Return("", inerr.ErrURLIsDeleted).Once()
+	handler := ShortenURL{
+		shortener: shortener,
+	}
+
+	result := sendTestRequest(http.MethodGet, "/"+urlID, nil, handler.Get)
+	assert.Equal(t, http.StatusGone, result.StatusCode)
+	err := result.Body.Close()
+	require.NoError(t, err)
+	shortener.AssertExpectations(t)
+}
+
 func TestShortenURLHandler_GetWithErrors(t *testing.T) {
 	var (
 		urlID     = "1i-CBrzwyMkL"
@@ -384,7 +410,7 @@ func TestShortenURL_GetAllByCurrentUserSuccess(t *testing.T) {
 		authenticator: authenticator,
 	}
 
-	result := sendTestRequest(http.MethodPost, "/", nil, handler.GetAllByCurrentUser)
+	result := sendTestRequest(http.MethodGet, "/", nil, handler.GetAllByCurrentUser)
 	assert.Equal(t, http.StatusOK, result.StatusCode)
 	assert.Equal(t, "application/json", result.Header.Get("Content-Type"))
 	b, err := io.ReadAll(result.Body)
@@ -419,7 +445,7 @@ func TestShortenURL_GetAllByCurrentUserNoContent(t *testing.T) {
 		authenticator: authenticator,
 	}
 
-	result := sendTestRequest(http.MethodPost, "/", nil, handler.GetAllByCurrentUser)
+	result := sendTestRequest(http.MethodGet, "/", nil, handler.GetAllByCurrentUser)
 	assert.Equal(t, http.StatusNoContent, result.StatusCode)
 	err := result.Body.Close()
 	require.NoError(t, err)
@@ -427,9 +453,36 @@ func TestShortenURL_GetAllByCurrentUserNoContent(t *testing.T) {
 	shortener.AssertExpectations(t)
 }
 
+func TestShortenURLHandler_DeleteBatch(t *testing.T) {
+	var (
+		urlID         = "1i-CBrzwyMkL"
+		userID        = "438c4b98-fc98-45cf-ac63-c4a86fbd4ff4"
+		shortener     = &ShortenerMock{}
+		authenticator = &AuthenticatorMock{}
+	)
+
+	authenticator.On("UserIdentifier").Return(userID, nil).Once()
+	shortener.On("DeleteBatch", []string{urlID}, userID).Return(nil).Once()
+	handler := ShortenURL{
+		shortener:     shortener,
+		authenticator: authenticator,
+	}
+
+	result := sendTestRequest(http.MethodDelete, "/", bytes.NewBuffer([]byte(`["`+urlID+`"]`)), handler.DeleteBatch)
+	assert.Equal(t, http.StatusAccepted, result.StatusCode)
+	err := result.Body.Close()
+	require.NoError(t, err)
+
+	// Останавливаем тест, чтобы успел записаться вызов DeleteBatch внутри goroutine.
+	time.Sleep(100 * time.Millisecond)
+
+	authenticator.AssertExpectations(t)
+	shortener.AssertExpectations(t)
+}
+
 func TestUserAuthenticationErrors(t *testing.T) {
 	authenticator := &AuthenticatorMock{}
-	authenticator.On("UserIdentifier").Return("userID", errors.New("")).Times(3)
+	authenticator.On("UserIdentifier").Return("userID", errors.New("")).Times(4)
 	handler := ShortenURL{
 		authenticator: authenticator,
 	}
@@ -449,6 +502,10 @@ func TestUserAuthenticationErrors(t *testing.T) {
 		{
 			name:    "GetAllByCurrentUser",
 			handler: handler.GetAllByCurrentUser,
+		},
+		{
+			name:    "DeleteBatch",
+			handler: handler.DeleteBatch,
 		},
 	}
 	for _, tt := range tests {

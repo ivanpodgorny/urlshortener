@@ -2,10 +2,14 @@ package handler
 
 import (
 	"context"
+	"errors"
 	"github.com/go-chi/chi/v5"
+	inerr "github.com/ivanpodgorny/urlshortener/internal/app/errors"
 	"github.com/ivanpodgorny/urlshortener/internal/app/validator"
 	"io"
+	"log"
 	"net/http"
+	"time"
 )
 
 type ShortenURL struct {
@@ -22,7 +26,10 @@ type Shortener interface {
 	Shorten(ctx context.Context, url string, userID string) (string, bool, error)
 	Get(ctx context.Context, id string) (string, error)
 	GetAllUser(ctx context.Context, userID string) map[string]string
+	DeleteBatch(ctx context.Context, urlIDs []string, userID string) error
 }
+
+const deleteBatchSize = 250
 
 func NewShortenURL(a IdentityProvider, s Shortener, b string) *ShortenURL {
 	return &ShortenURL{
@@ -164,8 +171,15 @@ func (h ShortenURL) CreateBatch(w http.ResponseWriter, r *http.Request) {
 
 // Get обрабатывает запрос на получение оригинального URL из сокращенного.
 // Возвращает ответ с кодом 307 и оригинальным URL в HTTP-заголовке Location.
+// Если URL был удален пользователем, возвращает ответ с кодом 410.
 func (h ShortenURL) Get(w http.ResponseWriter, r *http.Request) {
 	u, err := h.shortener.Get(r.Context(), chi.URLParam(r, "id"))
+	if errors.Is(err, inerr.ErrURLIsDeleted) {
+		w.WriteHeader(http.StatusGone)
+
+		return
+	}
+
 	if err != nil {
 		http.NotFound(w, r)
 
@@ -205,6 +219,43 @@ func (h ShortenURL) GetAllByCurrentUser(w http.ResponseWriter, r *http.Request) 
 	}
 
 	responseAsJSON(w, resp, http.StatusOK)
+}
+
+// DeleteBatch принимает список идентификаторов сокращённых URL для удаления в формате
+// [ "a", "b", "c", "d", ...]. В случае успешного приема запроса возвращает ответ с кодом 202.
+func (h ShortenURL) DeleteBatch(w http.ResponseWriter, r *http.Request) {
+	userID, err := h.authenticator.UserIdentifier(r)
+	if err != nil {
+		unauthorized(w)
+
+		return
+	}
+
+	urlIDs := make([]string, 0)
+	if err = readJSONBody(&urlIDs, r); err != nil {
+		badRequest(w)
+
+		return
+	}
+
+	idsCount := len(urlIDs)
+	for i := 0; i < idsCount; i += deleteBatchSize {
+		end := i + deleteBatchSize
+		if end > idsCount {
+			end = idsCount
+		}
+
+		go func(chunk []string) {
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+
+			if err = h.shortener.DeleteBatch(ctx, chunk, userID); err != nil {
+				log.Println("ошибка удаления url: " + err.Error())
+			}
+		}(urlIDs[i:end])
+	}
+
+	w.WriteHeader(http.StatusAccepted)
 }
 
 func (h ShortenURL) validateURL(u string) bool {
