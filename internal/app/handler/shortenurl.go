@@ -3,13 +3,15 @@ package handler
 import (
 	"context"
 	"errors"
-	"github.com/go-chi/chi/v5"
-	inerr "github.com/ivanpodgorny/urlshortener/internal/app/errors"
-	"github.com/ivanpodgorny/urlshortener/internal/app/validator"
 	"io"
 	"log"
 	"net/http"
 	"time"
+
+	"github.com/go-chi/chi/v5"
+
+	inerr "github.com/ivanpodgorny/urlshortener/internal/app/errors"
+	"github.com/ivanpodgorny/urlshortener/internal/app/validator"
 )
 
 type ShortenURL struct {

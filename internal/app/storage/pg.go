@@ -4,10 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	inerr "github.com/ivanpodgorny/urlshortener/internal/app/errors"
+	"strings"
+
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5/pgconn"
-	"strings"
+
+	inerr "github.com/ivanpodgorny/urlshortener/internal/app/errors"
 )
 
 type Pg struct {

@@ -3,11 +3,12 @@ package storage
 import (
 	"bufio"
 	"context"
-	inerr "github.com/ivanpodgorny/urlshortener/internal/app/errors"
 	"io"
 	"os"
 	"strings"
 	"sync"
+
+	inerr "github.com/ivanpodgorny/urlshortener/internal/app/errors"
 )
 
 const (

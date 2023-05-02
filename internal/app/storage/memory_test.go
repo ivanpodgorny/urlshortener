@@ -2,11 +2,13 @@ package storage
 
 import (
 	"context"
-	inerr "github.com/ivanpodgorny/urlshortener/internal/app/errors"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"os"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	inerr "github.com/ivanpodgorny/urlshortener/internal/app/errors"
 )
 
 func TestMemoryWithFile(t *testing.T) {

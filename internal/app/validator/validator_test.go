@@ -1,9 +1,10 @@
 package validator
 
 import (
-	"github.com/stretchr/testify/assert"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestIsURL(t *testing.T) {
