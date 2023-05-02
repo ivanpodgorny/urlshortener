@@ -13,3 +13,7 @@ func sendTestRequest(method string, target string, body io.Reader, handler http.
 
 	return w.Result()
 }
+
+func sendBenchmarkRequest(method string, target string, body io.Reader, handler http.HandlerFunc) {
+	handler(httptest.NewRecorder(), httptest.NewRequest(method, target, body))
+}

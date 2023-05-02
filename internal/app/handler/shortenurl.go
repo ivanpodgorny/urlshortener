@@ -149,7 +149,7 @@ func (h ShortenURL) CreateBatch(w http.ResponseWriter, r *http.Request) {
 		ID  string `json:"correlation_id"`
 		URL string `json:"short_url"`
 	}
-	resp := make([]shortenBatchItem, 0)
+	resp := make([]shortenBatchItem, 0, len(req))
 	for _, u := range req {
 		if !h.validateURL(u.URL) {
 			continue
@@ -203,8 +203,8 @@ func (h ShortenURL) GetAllByCurrentUser(w http.ResponseWriter, r *http.Request) 
 		ShortURL    string `json:"short_url"`
 		OriginalURL string `json:"original_url"`
 	}
-	resp := make([]urlData, 0)
 	urls := h.shortener.GetAllUser(r.Context(), userID)
+	resp := make([]urlData, 0, len(urls))
 	for id, u := range urls {
 		resp = append(resp, urlData{
 			ShortURL:    h.prepareShortenURL(id),

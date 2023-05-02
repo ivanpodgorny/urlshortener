@@ -3,11 +3,13 @@ package storage
 import (
 	"context"
 	"database/sql"
+	"database/sql/driver"
 	"errors"
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/DATA-DOG/go-txdb"
 	"github.com/ivanpodgorny/urlshortener/internal/app/config"
 	inerr "github.com/ivanpodgorny/urlshortener/internal/app/errors"
+	"github.com/ivanpodgorny/urlshortener/internal/app/security"
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5/pgconn"
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -87,6 +89,53 @@ func TestPgUniqueUrl(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, urlIDExisted, id)
 	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func BenchmarkPg_GetAllUser(b *testing.B) {
+	var (
+		db, mock, _ = sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
+		s           = NewPg(db)
+		ctx         = context.Background()
+		userID      = "1"
+		rows        = sqlmock.NewRows([]string{"url_id", "url"})
+	)
+	for i := 0; i < 1000; i++ {
+		id, _ := security.GenerateRandomString(16)
+		rows = rows.AddRow(id, "https://ya.ru/")
+	}
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		mock.ExpectQuery("select url_id, url from urls where user_id = $1 and deleted = false").
+			WithArgs(userID).
+			WillReturnRows(rows)
+		s.GetAllUser(ctx, userID)
+	}
+}
+
+func BenchmarkPg_DeleteBatch(b *testing.B) {
+	var (
+		db, mock, _ = sqlmock.New()
+		s           = NewPg(db)
+		ctx         = context.Background()
+		userID      = "1"
+		urlIDs      = make([]string, 250)
+		args        = make([]driver.Value, 251)
+	)
+	args[0] = userID
+	for i := range urlIDs {
+		id, _ := security.GenerateRandomString(16)
+		urlIDs[i] = id
+		args[i+1] = id
+	}
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		mock.ExpectExec("update urls").
+			WithArgs(args...).
+			WillReturnResult(sqlmock.NewResult(0, 1))
+		_ = s.DeleteBatch(ctx, urlIDs, userID)
+	}
 }
 
 func setupTestDB(t *testing.T) (*sql.DB, error) {

@@ -74,6 +74,7 @@ func Execute() error {
 	r.Use(middleware.Decompress())
 	r.Use(middleware.Authenticate(a))
 
+	r.Mount("/debug", chimiddleware.Profiler())
 	r.Post("/", sh.Create)
 	r.Get("/{id:[A-Za-z0-9_-]+}", sh.Get)
 	r.Post("/api/shorten", sh.CreateJSON)

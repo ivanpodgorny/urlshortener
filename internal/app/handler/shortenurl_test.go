@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	inerr "github.com/ivanpodgorny/urlshortener/internal/app/errors"
+	"github.com/ivanpodgorny/urlshortener/internal/app/security"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -43,6 +44,26 @@ func (m *ShortenerMock) DeleteBatch(_ context.Context, urlIDs []string, userID s
 	return args.Error(0)
 }
 
+type BenchmarkShortener struct {
+	UserURLs map[string]string
+}
+
+func (BenchmarkShortener) Shorten(_ context.Context, _ string, _ string) (string, bool, error) {
+	return "", true, nil
+}
+
+func (BenchmarkShortener) Get(_ context.Context, _ string) (string, error) {
+	return "", nil
+}
+
+func (s BenchmarkShortener) GetAllUser(_ context.Context, _ string) map[string]string {
+	return s.UserURLs
+}
+
+func (BenchmarkShortener) DeleteBatch(_ context.Context, _ []string, _ string) error {
+	return nil
+}
+
 type AuthenticatorMock struct {
 	mock.Mock
 }
@@ -51,6 +72,30 @@ func (m *AuthenticatorMock) UserIdentifier(_ *http.Request) (string, error) {
 	args := m.Called()
 
 	return args.String(0), args.Error(1)
+}
+
+type NullAuthenticator struct{}
+
+func (NullAuthenticator) UserIdentifier(_ *http.Request) (string, error) {
+	return "", nil
+}
+
+func CreateBenchmarkShortenURLHandler(b *testing.B) *ShortenURL {
+	urls := map[string]string{}
+	for i := 0; i < 1000; i++ {
+		id, _ := security.GenerateRandomString(16)
+		urls[id] = "https://ya.ru/"
+	}
+
+	h := &ShortenURL{
+		shortener: &BenchmarkShortener{
+			UserURLs: urls,
+		},
+		authenticator: &NullAuthenticator{},
+	}
+	b.ResetTimer()
+
+	return h
 }
 
 func TestShortenURLHandler_CreateSuccess(t *testing.T) {
@@ -555,4 +600,73 @@ func TestShortenURLHandler_prepareShortenURL(t *testing.T) {
 		baseURL: "http://localhost",
 	}
 	assert.Equal(t, "http://localhost/1", shortener.prepareShortenURL("1"))
+}
+
+func BenchmarkShortenURLHandler_Create(b *testing.B) {
+	handler := CreateBenchmarkShortenURLHandler(b)
+
+	for i := 0; i < b.N; i++ {
+		sendBenchmarkRequest(http.MethodPost, "/", bytes.NewBuffer([]byte("https://ya.ru/")), handler.Create)
+	}
+}
+
+func BenchmarkShortenURLHandler_CreateJSON(b *testing.B) {
+	handler := CreateBenchmarkShortenURLHandler(b)
+
+	for i := 0; i < b.N; i++ {
+		sendBenchmarkRequest(http.MethodPost, "/", bytes.NewBuffer([]byte(`{"url":"https://ya.ru/"}`)), handler.CreateJSON)
+	}
+}
+
+func BenchmarkShortenURLHandler_CreateBatch(b *testing.B) {
+	handler := CreateBenchmarkShortenURLHandler(b)
+	type batchItem struct {
+		ID  string `json:"correlation_id"`
+		URL string `json:"original_url"`
+	}
+	req := make([]batchItem, 1000)
+	for i := range req {
+		id, _ := security.GenerateRandomString(16)
+		req[i] = batchItem{
+			ID:  id,
+			URL: "https://ya.ru/",
+		}
+	}
+	body, _ := json.Marshal(req)
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		sendBenchmarkRequest(http.MethodPost, "/", bytes.NewBuffer(body), handler.CreateBatch)
+	}
+}
+
+func BenchmarkShortenURLHandler_Get(b *testing.B) {
+	handler := CreateBenchmarkShortenURLHandler(b)
+
+	for i := 0; i < b.N; i++ {
+		sendBenchmarkRequest(http.MethodGet, "/1i-CBrzwyMkL", nil, handler.Get)
+	}
+}
+
+func BenchmarkShortenURLHandler_GetAllByCurrentUser(b *testing.B) {
+	handler := CreateBenchmarkShortenURLHandler(b)
+
+	for i := 0; i < b.N; i++ {
+		sendBenchmarkRequest(http.MethodGet, "/", nil, handler.GetAllByCurrentUser)
+	}
+}
+
+func BenchmarkShortenURLHandler_DeleteBatch(b *testing.B) {
+	handler := CreateBenchmarkShortenURLHandler(b)
+	req := make([]string, 1000)
+	for i := range req {
+		id, _ := security.GenerateRandomString(16)
+		req[i] = id
+	}
+	body, _ := json.Marshal(req)
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		sendBenchmarkRequest(http.MethodDelete, "/", bytes.NewBuffer(body), handler.DeleteBatch)
+	}
 }
