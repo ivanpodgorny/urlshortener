@@ -5,6 +5,7 @@ import (
 	"net/url"
 )
 
+// Validator функция валидации.
 type Validator[T any] func(val T) error
 
 // Validate применяет набор валидаторов validators к значению val.

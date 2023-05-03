@@ -3,17 +3,13 @@ package storage
 import (
 	"bufio"
 	"context"
+	"errors"
 	"io"
 	"os"
 	"strings"
 	"sync"
 
 	inerr "github.com/ivanpodgorny/urlshortener/internal/app/errors"
-)
-
-const (
-	urlSectionName  = "url"
-	userSectionName = "user"
 )
 
 // Memory реализует интерфейс service.Storage для хранения url в памяти.
@@ -26,8 +22,19 @@ type Memory struct {
 	mu         sync.RWMutex
 }
 
-const deletedFlag = "deleted"
+const (
+	deletedFlag     = "deleted"
+	urlSectionName  = "url"
+	userSectionName = "user"
+)
 
+// ErrKeyExists URL с данным id eже существует.
+var ErrKeyExists = errors.New("key exists")
+
+// ErrKeyNotFound н найден URL с данным id.
+var ErrKeyNotFound = errors.New("key not found")
+
+// NewMemory возвращает указатель на новый экземпляр Memory.
 func NewMemory(file *os.File) *Memory {
 	s := Memory{
 		urls:       map[string]string{},
@@ -39,6 +46,7 @@ func NewMemory(file *os.File) *Memory {
 	return &s
 }
 
+// Add сохраняет URL.
 func (m *Memory) Add(_ context.Context, id string, url string, userID string) (string, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -59,6 +67,8 @@ func (m *Memory) Add(_ context.Context, id string, url string, userID string) (s
 	return id, nil
 }
 
+// Get возвращает сохраненный URL по id. Если URL был помечен удаленным, возвращает
+// ошибку errors.ErrURLIsDeleted.
 func (m *Memory) Get(_ context.Context, id string) (string, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -75,6 +85,7 @@ func (m *Memory) Get(_ context.Context, id string) (string, error) {
 	return url, nil
 }
 
+// GetAllUser возвращает все сохраненные URL пользователя.
 func (m *Memory) GetAllUser(ctx context.Context, userID string) map[string]string {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -95,6 +106,7 @@ func (m *Memory) GetAllUser(ctx context.Context, userID string) map[string]strin
 	return data
 }
 
+// DeleteBatch удаляет URL с заданными id.
 func (m *Memory) DeleteBatch(_ context.Context, urlIDs []string, userID string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()

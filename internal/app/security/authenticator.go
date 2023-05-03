@@ -2,11 +2,14 @@ package security
 
 import "net/http"
 
+// Authenticator реализует методы для аутентификации и получения данных
+// аутентифицированного пользователя.
 type Authenticator struct {
 	storage      TokenStorage[*http.Request, http.ResponseWriter]
 	userProvider UserProvider[*http.Request, *http.Request]
 }
 
+// NewAuthenticator возвращает указатель на новый экземпляр Authenticator.
 func NewAuthenticator(s TokenStorage[*http.Request, http.ResponseWriter], p UserProvider[*http.Request, *http.Request]) *Authenticator {
 	return &Authenticator{
 		storage:      s,

@@ -6,6 +6,7 @@ import (
 	"github.com/lopezator/migrator"
 )
 
+// Up выполняет миграции БД.
 func Up(db *sql.DB) error {
 	m, err := migrator.New(
 		migrator.Migrations(

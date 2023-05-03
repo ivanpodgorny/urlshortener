@@ -12,14 +12,17 @@ import (
 	inerr "github.com/ivanpodgorny/urlshortener/internal/app/errors"
 )
 
+// Pg реализует интерфейс service.Storage для хранения url в PostgreSQL.
 type Pg struct {
 	db *sql.DB
 }
 
+// NewPg возвращает указатель на новый экземпляр Pg.
 func NewPg(db *sql.DB) *Pg {
 	return &Pg{db: db}
 }
 
+// Add сохраняет URL. Если URL был сохранен ранее, возвращает его id.
 func (p *Pg) Add(ctx context.Context, id string, url string, userID string) (string, error) {
 	_, err := p.db.ExecContext(ctx, "insert into urls (user_id, url_id, url) values ($1, $2, $3)", userID, id, url)
 
@@ -33,6 +36,8 @@ func (p *Pg) Add(ctx context.Context, id string, url string, userID string) (str
 	return id, err
 }
 
+// Get возвращает сохраненный URL по id. Если URL был помечен удаленным, возвращает
+// ошибку errors.ErrURLIsDeleted.
 func (p *Pg) Get(ctx context.Context, id string) (string, error) {
 	var (
 		url     = ""
@@ -49,6 +54,7 @@ func (p *Pg) Get(ctx context.Context, id string) (string, error) {
 	return url, nil
 }
 
+// GetAllUser возвращает все сохраненные URL пользователя.
 func (p *Pg) GetAllUser(ctx context.Context, userID string) map[string]string {
 	data := map[string]string{}
 	rows, err := p.db.QueryContext(ctx, "select url_id, url from urls where user_id = $1 and deleted = false", userID)
@@ -80,6 +86,7 @@ func (p *Pg) GetAllUser(ctx context.Context, userID string) map[string]string {
 	return data
 }
 
+// DeleteBatch удаляет URL с заданными id.
 func (p *Pg) DeleteBatch(ctx context.Context, urlIDs []string, userID string) error {
 	var (
 		params       = make([]any, len(urlIDs)+1)

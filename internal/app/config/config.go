@@ -6,14 +6,13 @@ import (
 	"github.com/caarlos0/env/v7"
 )
 
-type Config interface {
-	ServerAddress() string
-	BaseURL() string
-	FileStoragePath() string
-	HMACKey() string
-	DatabaseDSN() string
+// Config хранит значения параметров приложения и позволяет получить
+// их через геттеры.
+type Config struct {
+	parameters *parameters
 }
 
+// Builder реализует методы для загрузки значений параметров.
 type Builder struct {
 	parameters *parameters
 	err        error
@@ -32,6 +31,7 @@ const (
 	defaultBaseURL       = "http://localhost:8080"
 )
 
+// NewBuilder возвращает указатель на новый экземпляр Builder.
 func NewBuilder() *Builder {
 	return &Builder{
 		parameters: &parameters{
@@ -41,24 +41,28 @@ func NewBuilder() *Builder {
 	}
 }
 
+// SetDefaultServerAddress устанавливает значение адреса сервера по умолчанию.
 func (b *Builder) SetDefaultServerAddress(addr string) *Builder {
 	b.parameters.ServerAddress = addr
 
 	return b
 }
 
+// SetDefaultBaseURL устанавливает значение базового URL сокращенных ссылок по умолчанию.
 func (b *Builder) SetDefaultBaseURL(url string) *Builder {
 	b.parameters.BaseURL = url
 
 	return b
 }
 
+// LoadEnv загружает значения переменных окружения.
 func (b *Builder) LoadEnv() *Builder {
 	b.err = env.Parse(b.parameters)
 
 	return b
 }
 
+// LoadFlags загружает значения флагов командной строки.
 func (b *Builder) LoadFlags() *Builder {
 	flag.StringVar(&b.parameters.ServerAddress, "a", b.parameters.ServerAddress, "адрес запуска HTTP-сервера")
 	flag.StringVar(&b.parameters.BaseURL, "b", b.parameters.BaseURL, "базовый адрес результирующего сокращённого URL")
@@ -69,26 +73,32 @@ func (b *Builder) LoadFlags() *Builder {
 	return b
 }
 
-func (b *Builder) Build() (Config, error) {
-	return b, b.err
+// Build возвращает Config для чтения загруженных значений параметров.
+func (b *Builder) Build() (*Config, error) {
+	return &Config{b.parameters}, b.err
 }
 
-func (b *Builder) ServerAddress() string {
-	return b.parameters.ServerAddress
+// ServerAddress возвращает значение адреса сервера.
+func (c *Config) ServerAddress() string {
+	return c.parameters.ServerAddress
 }
 
-func (b *Builder) BaseURL() string {
-	return b.parameters.BaseURL
+// BaseURL возвращает значение базового URL сокращенных ссылок.
+func (c *Config) BaseURL() string {
+	return c.parameters.BaseURL
 }
 
-func (b *Builder) FileStoragePath() string {
-	return b.parameters.FileStoragePath
+// FileStoragePath возвращает путь к файлу для хранения сокращенных URL.
+func (c *Config) FileStoragePath() string {
+	return c.parameters.FileStoragePath
 }
 
-func (b *Builder) HMACKey() string {
-	return b.parameters.HMACKey
+// HMACKey возвращает значение ключа для создания HMAC подписи.
+func (c *Config) HMACKey() string {
+	return c.parameters.HMACKey
 }
 
-func (b *Builder) DatabaseDSN() string {
-	return b.parameters.DatabaseDSN
+// DatabaseDSN возвращает строку подключения к PostgreSQL.
+func (c *Config) DatabaseDSN() string {
+	return c.parameters.DatabaseDSN
 }

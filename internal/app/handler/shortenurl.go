@@ -14,16 +14,19 @@ import (
 	"github.com/ivanpodgorny/urlshortener/internal/app/validator"
 )
 
+// ShortenURL реализует хендлеры для работы с сокращенными URL.
 type ShortenURL struct {
 	authenticator IdentityProvider
 	shortener     Shortener
 	baseURL       string
 }
 
+// IdentityProvider интерфейс для получения ID пользователя, выполнившего запрос.
 type IdentityProvider interface {
 	UserIdentifier(r *http.Request) (string, error)
 }
 
+// Shortener интерфейс сервиса сокращения и получения URL.
 type Shortener interface {
 	Shorten(ctx context.Context, url string, userID string) (string, bool, error)
 	Get(ctx context.Context, id string) (string, error)
@@ -33,6 +36,7 @@ type Shortener interface {
 
 const deleteBatchSize = 250
 
+// NewShortenURL возвращает указатель на новый экземпляр ShortenURL.
 func NewShortenURL(a IdentityProvider, s Shortener, b string) *ShortenURL {
 	return &ShortenURL{
 		authenticator: a,
@@ -74,8 +78,15 @@ func (h ShortenURL) Create(w http.ResponseWriter, r *http.Request) {
 }
 
 // CreateJSON обрабатывает запрос на создание сокращенного URL.
-// Оригинальный URL передается в теле запроса в формате JSON {"url":"<some_url>"}.
-// В теле ответа приходит JSON формата {"result":"<shorten_url>"} с сокращенным URL.
+// Оригинальный URL передается в теле запроса в формате JSON
+//
+//	{"url":"<some_url>"}
+//
+// В теле ответа приходит JSON формата
+//
+//	{"result":"<shorten_url>"}
+//
+// с сокращенным URL.
 func (h ShortenURL) CreateJSON(w http.ResponseWriter, r *http.Request) {
 	userID, err := h.authenticator.UserIdentifier(r)
 	if err != nil {
@@ -119,9 +130,14 @@ func (h ShortenURL) CreateJSON(w http.ResponseWriter, r *http.Request) {
 
 // CreateBatch обрабатывает запрос на создание нескольких сокращенных URL.
 // Оригинальные URL передаются в теле запроса в формате JSON
-// [{"correlation_id": "<строковый идентификатор>", "original_url": "<URL для сокращения>"}, ...].
+//
+//	[{"correlation_id": "<строковый идентификатор>", "original_url": "<URL для сокращения>"}, ...]
+//
 // В теле ответа приходит JSON формата
-// [{"correlation_id": "<строковый идентификатор>", "short_url": "<сокращённый URL>"}, ... ]  с сокращенными URL.
+//
+//	[{"correlation_id": "<строковый идентификатор>", "short_url": "<сокращённый URL>"}, ... ]
+//
+// с сокращенными URL.
 func (h ShortenURL) CreateBatch(w http.ResponseWriter, r *http.Request) {
 	userID, err := h.authenticator.UserIdentifier(r)
 	if err != nil {
@@ -192,7 +208,8 @@ func (h ShortenURL) Get(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetAllByCurrentUser возвращает все сокращенные URL пользователя, выполнившего запрос, в формате
-// [{"short_url": "http://...", "original_url": "http://..."}, ...].
+//
+//	[{"short_url": "http://...", "original_url": "http://..."}, ...]
 func (h ShortenURL) GetAllByCurrentUser(w http.ResponseWriter, r *http.Request) {
 	userID, err := h.authenticator.UserIdentifier(r)
 	if err != nil {
@@ -224,7 +241,10 @@ func (h ShortenURL) GetAllByCurrentUser(w http.ResponseWriter, r *http.Request) 
 }
 
 // DeleteBatch принимает список идентификаторов сокращённых URL для удаления в формате
-// [ "a", "b", "c", "d", ...]. В случае успешного приема запроса возвращает ответ с кодом 202.
+//
+//	["a", "b", "c", "d", ...]
+//
+// В случае успешного приема запроса возвращает ответ с кодом 202.
 func (h ShortenURL) DeleteBatch(w http.ResponseWriter, r *http.Request) {
 	userID, err := h.authenticator.UserIdentifier(r)
 	if err != nil {
