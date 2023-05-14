@@ -4,6 +4,7 @@ import (
 	"net/http"
 )
 
+// Authenticator интерфейс сервиса аутентификации пользователя.
 type Authenticator interface {
 	Authenticate(http.ResponseWriter, *http.Request) *http.Request
 }

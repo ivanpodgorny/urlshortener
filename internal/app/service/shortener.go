@@ -6,10 +6,12 @@ import (
 	"github.com/ivanpodgorny/urlshortener/internal/app/security"
 )
 
+// Shortener реализует методы для сокращения и получения URL.
 type Shortener struct {
 	storage Storage
 }
 
+// Storage интерфейс хранилища сокращенных URL.
 type Storage interface {
 	Add(ctx context.Context, id string, url string, userID string) (string, error)
 	Get(ctx context.Context, id string) (string, error)
@@ -17,6 +19,7 @@ type Storage interface {
 	DeleteBatch(ctx context.Context, urlIDs []string, userID string) error
 }
 
+// NewShortener возвращает указатель на новый экземпляр Shortener.
 func NewShortener(s Storage) *Shortener {
 	return &Shortener{storage: s}
 }
@@ -45,7 +48,9 @@ func (s Shortener) Get(ctx context.Context, id string) (string, error) {
 }
 
 // GetAllUser принимает идентификатор пользователя
-// и возвращает сокращенные им URL и их ID в формате {ID: URL, ...}.
+// и возвращает сокращенные им URL и их ID в формате
+//
+//	{ID: URL, ...}
 func (s Shortener) GetAllUser(ctx context.Context, userID string) map[string]string {
 	return s.storage.GetAllUser(ctx, userID)
 }

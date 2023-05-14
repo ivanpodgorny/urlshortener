@@ -7,10 +7,12 @@ import (
 	"github.com/google/uuid"
 )
 
+// GenerateUUID генерирует UUID v4.
 func GenerateUUID() string {
 	return uuid.New().String()
 }
 
+// GenerateRandomBytes генерирует случайную последовательность байт длины size.
 func GenerateRandomBytes(size int) ([]byte, error) {
 	b := make([]byte, size)
 	if _, err := rand.Read(b); err != nil {
@@ -20,6 +22,8 @@ func GenerateRandomBytes(size int) ([]byte, error) {
 	return b, nil
 }
 
+// GenerateRandomString генерирует случайную строку из цифр, букв латинского алфавита
+// и символов "-_" длины size.
 func GenerateRandomString(size int) (string, error) {
 	b, err := GenerateRandomBytes(size)
 	if err != nil {
