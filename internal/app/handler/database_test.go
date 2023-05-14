@@ -2,11 +2,12 @@ package handler
 
 import (
 	"context"
+	"net/http"
+	"testing"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"net/http"
-	"testing"
 )
 
 type PingerMock struct {

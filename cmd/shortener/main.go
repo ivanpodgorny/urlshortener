@@ -3,8 +3,14 @@ package main
 import (
 	"compress/flate"
 	"database/sql"
+	"log"
+	"net/http"
+	"os"
+
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
+	_ "github.com/jackc/pgx/v5/stdlib"
+
 	"github.com/ivanpodgorny/urlshortener/internal/app/config"
 	"github.com/ivanpodgorny/urlshortener/internal/app/handler"
 	"github.com/ivanpodgorny/urlshortener/internal/app/middleware"
@@ -12,10 +18,6 @@ import (
 	"github.com/ivanpodgorny/urlshortener/internal/app/security"
 	"github.com/ivanpodgorny/urlshortener/internal/app/service"
 	"github.com/ivanpodgorny/urlshortener/internal/app/storage"
-	_ "github.com/jackc/pgx/v5/stdlib"
-	"log"
-	"net/http"
-	"os"
 )
 
 func main() {

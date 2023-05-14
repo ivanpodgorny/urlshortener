@@ -5,17 +5,19 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"errors"
+	"testing"
+
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/DATA-DOG/go-txdb"
-	"github.com/ivanpodgorny/urlshortener/internal/app/config"
-	inerr "github.com/ivanpodgorny/urlshortener/internal/app/errors"
-	"github.com/ivanpodgorny/urlshortener/internal/app/security"
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5/pgconn"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"testing"
+
+	"github.com/ivanpodgorny/urlshortener/internal/app/config"
+	inerr "github.com/ivanpodgorny/urlshortener/internal/app/errors"
+	"github.com/ivanpodgorny/urlshortener/internal/app/security"
 )
 
 func TestPgRealConnection(t *testing.T) {

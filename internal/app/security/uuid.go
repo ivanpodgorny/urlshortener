@@ -3,6 +3,7 @@ package security
 import (
 	"crypto/rand"
 	"encoding/base64"
+
 	"github.com/google/uuid"
 )
 

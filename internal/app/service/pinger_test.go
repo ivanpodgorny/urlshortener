@@ -3,11 +3,12 @@ package service
 import (
 	"context"
 	"errors"
+	"testing"
+	"time"
+
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"testing"
-	"time"
 )
 
 func TestPinger_Ping(t *testing.T) {

@@ -5,15 +5,17 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	inerr "github.com/ivanpodgorny/urlshortener/internal/app/errors"
-	"github.com/ivanpodgorny/urlshortener/internal/app/security"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
 	"io"
 	"net/http"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+
+	inerr "github.com/ivanpodgorny/urlshortener/internal/app/errors"
+	"github.com/ivanpodgorny/urlshortener/internal/app/security"
 )
 
 type ShortenerMock struct {

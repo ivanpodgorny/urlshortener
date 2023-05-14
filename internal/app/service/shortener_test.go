@@ -3,10 +3,12 @@ package service
 import (
 	"context"
 	"errors"
-	inerr "github.com/ivanpodgorny/urlshortener/internal/app/errors"
+	"testing"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"testing"
+
+	inerr "github.com/ivanpodgorny/urlshortener/internal/app/errors"
 )
 
 type StorageMock struct {
