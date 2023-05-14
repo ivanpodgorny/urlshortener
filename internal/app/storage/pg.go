@@ -80,15 +80,16 @@ func (p *Pg) GetAllUser(ctx context.Context, userID string) map[string]string {
 
 func (p *Pg) DeleteBatch(ctx context.Context, urlIDs []string, userID string) error {
 	var (
-		params       = []any{userID}
+		params       = make([]any, len(urlIDs)+1)
 		placeholders = strings.Builder{}
 	)
+	params[0] = userID
 	for i, urlID := range urlIDs {
 		if i != 0 {
 			placeholders.WriteString(",")
 		}
 		placeholders.WriteString(fmt.Sprintf("$%d", i+2))
-		params = append(params, urlID)
+		params[i+1] = urlID
 	}
 
 	_, err := p.db.ExecContext(ctx, `

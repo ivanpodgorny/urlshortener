@@ -112,3 +112,9 @@ func TestSize(t *testing.T) {
 		})
 	}
 }
+
+func BenchmarkIsURL(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		_ = IsURL("https://ya.ru/")
+	}
+}
