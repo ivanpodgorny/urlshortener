@@ -27,9 +27,9 @@ func TestDatabase_Ping(t *testing.T) {
 	failPinger.On("Ping").Return(false).Once()
 
 	tests := []struct {
+		pinger         *PingerMock
 		name           string
 		wantStatusCode int
-		pinger         *PingerMock
 	}{
 		{
 			name:           "успешная проверка",
