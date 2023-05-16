@@ -29,6 +29,8 @@ func NewBuilder() *Builder {
 	return &Builder{
 		parameters: &parameters{
 			AnalyzersNames: []string{
+				"bodyclose",
+				"errcheck",
 				"osexit",
 				"asmdecl",
 				"assign",
