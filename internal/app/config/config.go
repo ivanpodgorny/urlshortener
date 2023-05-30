@@ -24,6 +24,7 @@ type parameters struct {
 	FileStoragePath string `env:"FILE_STORAGE_PATH"`
 	HMACKey         string `env:"HMAC_KEY"`
 	DatabaseDSN     string `env:"DATABASE_DSN"`
+	EnableHTTPS     bool   `env:"ENABLE_HTTPS"`
 }
 
 const (
@@ -68,6 +69,7 @@ func (b *Builder) LoadFlags() *Builder {
 	flag.StringVar(&b.parameters.BaseURL, "b", b.parameters.BaseURL, "базовый адрес результирующего сокращённого URL")
 	flag.StringVar(&b.parameters.FileStoragePath, "f", "", "путь к файлу для хранения сокращенных URL")
 	flag.StringVar(&b.parameters.DatabaseDSN, "d", "", "адрес подключения к PostgreSQL")
+	flag.BoolVar(&b.parameters.EnableHTTPS, "s", false, "включает HTTPS в веб-сервере")
 	flag.Parse()
 
 	return b
@@ -101,4 +103,9 @@ func (c *Config) HMACKey() string {
 // DatabaseDSN возвращает строку подключения к PostgreSQL.
 func (c *Config) DatabaseDSN() string {
 	return c.parameters.DatabaseDSN
+}
+
+// EnableHTTPS возвращает значение флага включения HTTPS в веб-сервере.
+func (c *Config) EnableHTTPS() bool {
+	return c.parameters.EnableHTTPS
 }

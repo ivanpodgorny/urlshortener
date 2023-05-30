@@ -2,9 +2,11 @@ package main
 
 import (
 	"compress/flate"
+	"crypto/tls"
 	"database/sql"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
 
@@ -101,7 +103,33 @@ func Execute() error {
 
 	fmt.Printf(buildInfo, buildVersion, buildDate, buildCommit)
 
-	err = http.ListenAndServe(cfg.ServerAddress(), r)
+	if !cfg.EnableHTTPS() {
+		return http.ListenAndServe(cfg.ServerAddress(), r)
+	}
+
+	srv := &http.Server{
+		Handler: r,
+	}
+
+	cert, err := security.CreateCertificate()
+	if err != nil {
+		return err
+	}
+	l, err := tls.Listen(
+		"tcp",
+		cfg.ServerAddress(),
+		&tls.Config{
+			Certificates: []tls.Certificate{cert},
+		},
+	)
+	if err != nil {
+		return err
+	}
+	defer func(l net.Listener) {
+		err = l.Close()
+	}(l)
+
+	err = srv.Serve(l)
 
 	return err
 }
