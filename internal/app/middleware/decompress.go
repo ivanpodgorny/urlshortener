@@ -32,7 +32,9 @@ func (d decompressor) handler(next http.Handler) http.Handler {
 			}
 
 			r.Body = reader
-			defer reader.Close()
+			defer func() {
+				_ = reader.Close()
+			}()
 		}
 
 		next.ServeHTTP(w, r)

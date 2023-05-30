@@ -3,6 +3,7 @@ package main
 import (
 	"compress/flate"
 	"database/sql"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -18,6 +19,14 @@ import (
 	"github.com/ivanpodgorny/urlshortener/internal/app/security"
 	"github.com/ivanpodgorny/urlshortener/internal/app/service"
 	"github.com/ivanpodgorny/urlshortener/internal/app/storage"
+)
+
+const buildInfo = "Build version: %s\nBuild date: %s\nBuild commit: %s\n"
+
+var (
+	buildVersion = "N/A"
+	buildDate    = "N/A"
+	buildCommit  = "N/A"
 )
 
 func main() {
@@ -89,6 +98,8 @@ func Execute() error {
 	r.Get("/api/user/urls", sh.GetAllByCurrentUser)
 	r.Delete("/api/user/urls", sh.DeleteBatch)
 	r.Get("/ping", dh.Ping)
+
+	fmt.Printf(buildInfo, buildVersion, buildDate, buildCommit)
 
 	err = http.ListenAndServe(cfg.ServerAddress(), r)
 

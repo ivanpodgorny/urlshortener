@@ -4,6 +4,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/stretchr/testify/assert"
 )
 
@@ -25,7 +27,7 @@ func TestAuthenticator(t *testing.T) {
 	assert.NoError(t, err, "создание нового токена для пользователя")
 
 	resp := recorder.Result()
-	defer resp.Body.Close()
+	defer require.NoError(t, resp.Body.Close())
 
 	request.AddCookie(resp.Cookies()[0])
 	request = authenticator.Authenticate(recorder, request)

@@ -30,7 +30,11 @@ func Example() {
 
 	fmt.Println(respGet.Header.Get("Location"))
 
-	// Output: https://ya.ru
+	// Output:
+	// Build version: N/A
+	// Build date: N/A
+	// Build commit: N/A
+	// https://ya.ru
 }
 
 func Example_shorten() {
