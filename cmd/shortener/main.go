@@ -59,7 +59,7 @@ func Execute() error {
 	var store service.Storage
 	store = storage.NewMemory(file)
 	if cfg.DatabaseDSN() != "" {
-		if err := migrations.Up(db); err != nil {
+		if err = migrations.Up(db); err != nil {
 			return err
 		}
 

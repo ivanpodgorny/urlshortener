@@ -167,8 +167,8 @@ func TestShortenURLHandler_CreateWithErrors(t *testing.T) {
 	}
 
 	tests := []struct {
-		name           string
 		body           io.Reader
+		name           string
 		wantStatusCode int
 	}{
 		{
@@ -272,10 +272,10 @@ func TestShortenURLHandler_CreateJSONWithErrors(t *testing.T) {
 	}
 
 	tests := []struct {
-		name               string
 		body               io.Reader
-		wantStatusCode     int
+		name               string
 		wantResponseResult string
+		wantStatusCode     int
 	}{
 		{
 			name:           "неверный формат JSON",
@@ -535,8 +535,8 @@ func TestUserAuthenticationErrors(t *testing.T) {
 	}
 
 	tests := []struct {
-		name    string
 		handler http.HandlerFunc
+		name    string
 	}{
 		{
 			name:    "Create",
