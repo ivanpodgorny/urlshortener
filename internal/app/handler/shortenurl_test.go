@@ -95,6 +95,7 @@ func CreateBenchmarkShortenURLHandler(b *testing.B) *ShortenURL {
 			UserURLs: urls,
 		},
 		authenticator: &NullAuthenticator{},
+		wg:            &sync.WaitGroup{},
 	}
 	b.ResetTimer()
 
