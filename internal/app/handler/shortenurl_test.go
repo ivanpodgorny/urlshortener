@@ -7,6 +7,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"sync"
 	"testing"
 	"time"
 
@@ -513,6 +514,7 @@ func TestShortenURLHandler_DeleteBatch(t *testing.T) {
 	handler := ShortenURL{
 		shortener:     shortener,
 		authenticator: authenticator,
+		wg:            &sync.WaitGroup{},
 	}
 
 	result := sendTestRequest(http.MethodDelete, "/", bytes.NewBuffer([]byte(`["`+urlID+`"]`)), handler.DeleteBatch)
