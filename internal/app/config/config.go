@@ -1,7 +1,9 @@
 package config
 
 import (
+	"encoding/json"
 	"flag"
+	"os"
 
 	"github.com/caarlos0/env/v7"
 )
@@ -15,16 +17,19 @@ type Config struct {
 // Builder реализует методы для загрузки значений параметров.
 type Builder struct {
 	parameters *parameters
+	flags      *parameters
 	err        error
+	arguments  []string
 }
 
 type parameters struct {
-	ServerAddress   string `env:"SERVER_ADDRESS"`
-	BaseURL         string `env:"BASE_URL"`
-	FileStoragePath string `env:"FILE_STORAGE_PATH"`
-	HMACKey         string `env:"HMAC_KEY"`
-	DatabaseDSN     string `env:"DATABASE_DSN"`
-	EnableHTTPS     bool   `env:"ENABLE_HTTPS"`
+	ServerAddress   string `env:"SERVER_ADDRESS" json:"server_address"`
+	BaseURL         string `env:"BASE_URL" json:"base_url"`
+	FileStoragePath string `env:"FILE_STORAGE_PATH" json:"file_storage_path"`
+	HMACKey         string `env:"HMAC_KEY" json:"hmac_key"`
+	DatabaseDSN     string `env:"DATABASE_DSN" json:"database_dsn"`
+	ConfigFile      string
+	EnableHTTPS     bool `env:"ENABLE_HTTPS" json:"enable_https"`
 }
 
 const (
@@ -34,12 +39,17 @@ const (
 
 // NewBuilder возвращает указатель на новый экземпляр Builder.
 func NewBuilder() *Builder {
-	return &Builder{
+	b := &Builder{
+		arguments: os.Args[1:],
 		parameters: &parameters{
 			ServerAddress: defaultServerAddress,
 			BaseURL:       defaultBaseURL,
 		},
+		flags: &parameters{},
 	}
+	b.prepareFlags()
+
+	return b
 }
 
 // SetDefaultServerAddress устанавливает значение адреса сервера по умолчанию.
@@ -58,19 +68,68 @@ func (b *Builder) SetDefaultBaseURL(url string) *Builder {
 
 // LoadEnv загружает значения переменных окружения.
 func (b *Builder) LoadEnv() *Builder {
-	b.err = env.Parse(b.parameters)
+	if err := env.Parse(b.parameters); err != nil {
+		b.err = err
+	}
 
 	return b
 }
 
 // LoadFlags загружает значения флагов командной строки.
 func (b *Builder) LoadFlags() *Builder {
-	flag.StringVar(&b.parameters.ServerAddress, "a", b.parameters.ServerAddress, "адрес запуска HTTP-сервера")
-	flag.StringVar(&b.parameters.BaseURL, "b", b.parameters.BaseURL, "базовый адрес результирующего сокращённого URL")
-	flag.StringVar(&b.parameters.FileStoragePath, "f", "", "путь к файлу для хранения сокращенных URL")
-	flag.StringVar(&b.parameters.DatabaseDSN, "d", "", "адрес подключения к PostgreSQL")
-	flag.BoolVar(&b.parameters.EnableHTTPS, "s", false, "включает HTTPS в веб-сервере")
-	flag.Parse()
+	err := flag.CommandLine.Parse(b.arguments)
+	if err != nil {
+		b.err = err
+
+		return b
+	}
+
+	if b.flags.ServerAddress != "" {
+		b.parameters.ServerAddress = b.flags.ServerAddress
+	}
+	if b.flags.BaseURL != "" {
+		b.parameters.BaseURL = b.flags.BaseURL
+	}
+	if b.flags.FileStoragePath != "" {
+		b.parameters.FileStoragePath = b.flags.FileStoragePath
+	}
+	if b.flags.HMACKey != "" {
+		b.parameters.HMACKey = b.flags.HMACKey
+	}
+	if b.flags.DatabaseDSN != "" {
+		b.parameters.DatabaseDSN = b.flags.DatabaseDSN
+	}
+	if b.flags.EnableHTTPS {
+		b.parameters.EnableHTTPS = b.flags.EnableHTTPS
+	}
+
+	return b
+}
+
+// LoadFile загружает значения из файла конфигурации.
+func (b *Builder) LoadFile() *Builder {
+	if err := flag.CommandLine.Parse(b.arguments); err != nil {
+		b.err = err
+
+		return b
+	}
+
+	configFile := b.flags.ConfigFile
+	configFileEnv := os.Getenv("CONFIG")
+	if configFileEnv != "" {
+		configFile = configFileEnv
+	}
+
+	if configFile != "" {
+		data, err := os.ReadFile(configFile)
+		if err != nil {
+			b.err = err
+
+			return b
+		}
+
+		b.err = json.Unmarshal(data, &b.parameters)
+	}
 
 	return b
 }
@@ -78,6 +137,16 @@ func (b *Builder) LoadFlags() *Builder {
 // Build возвращает Config для чтения загруженных значений параметров.
 func (b *Builder) Build() (*Config, error) {
 	return &Config{b.parameters}, b.err
+}
+
+func (b *Builder) prepareFlags() {
+	flag.StringVar(&b.flags.ServerAddress, "a", b.parameters.ServerAddress, "адрес запуска HTTP-сервера")
+	flag.StringVar(&b.flags.BaseURL, "b", b.parameters.BaseURL, "базовый адрес результирующего сокращённого URL")
+	flag.StringVar(&b.flags.FileStoragePath, "f", b.parameters.FileStoragePath, "путь к файлу для хранения сокращенных URL")
+	flag.StringVar(&b.flags.DatabaseDSN, "d", b.parameters.DatabaseDSN, "адрес подключения к PostgreSQL")
+	flag.BoolVar(&b.flags.EnableHTTPS, "s", b.parameters.EnableHTTPS, "включает HTTPS в веб-сервере")
+	flag.StringVar(&b.flags.ConfigFile, "c", b.parameters.ConfigFile, "путь к конфигурационному файлу")
+	flag.StringVar(&b.flags.ConfigFile, "config", b.parameters.ConfigFile, "путь к конфигурационному файлу")
 }
 
 // ServerAddress возвращает значение адреса сервера.

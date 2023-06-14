@@ -41,7 +41,11 @@ func main() {
 // В качестве хранилища данных используется PostgreSQL, если указано DSN, иначе данные
 // хранятся в файле на диске.
 func Execute() error {
-	cfg, err := config.NewBuilder().LoadFlags().LoadEnv().Build()
+	cfg, err := config.NewBuilder().
+		LoadFile().
+		LoadFlags().
+		LoadEnv().
+		Build()
 	if err != nil {
 		return err
 	}
