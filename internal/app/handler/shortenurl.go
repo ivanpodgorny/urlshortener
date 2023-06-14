@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -18,6 +19,7 @@ import (
 type ShortenURL struct {
 	authenticator IdentityProvider
 	shortener     Shortener
+	wg            *sync.WaitGroup
 	baseURL       string
 }
 
@@ -37,11 +39,12 @@ type Shortener interface {
 const deleteBatchSize = 250
 
 // NewShortenURL возвращает указатель на новый экземпляр ShortenURL.
-func NewShortenURL(a IdentityProvider, s Shortener, b string) *ShortenURL {
+func NewShortenURL(a IdentityProvider, s Shortener, b string, wg *sync.WaitGroup) *ShortenURL {
 	return &ShortenURL{
 		authenticator: a,
 		shortener:     s,
 		baseURL:       b,
+		wg:            wg,
 	}
 }
 
@@ -267,12 +270,15 @@ func (h ShortenURL) DeleteBatch(w http.ResponseWriter, r *http.Request) {
 			end = idsCount
 		}
 
+		h.wg.Add(1)
 		go func(chunk []string) {
+			defer h.wg.Done()
+
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 
 			if err = h.shortener.DeleteBatch(ctx, chunk, userID); err != nil {
-				log.Println("ошибка удаления url: " + err.Error())
+				log.Printf("Error while deleting url: %v", err)
 			}
 		}(urlIDs[i:end])
 	}

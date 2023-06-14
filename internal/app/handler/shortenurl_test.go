@@ -7,6 +7,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"sync"
 	"testing"
 	"time"
 
@@ -94,6 +95,7 @@ func CreateBenchmarkShortenURLHandler(b *testing.B) *ShortenURL {
 			UserURLs: urls,
 		},
 		authenticator: &NullAuthenticator{},
+		wg:            &sync.WaitGroup{},
 	}
 	b.ResetTimer()
 
@@ -513,6 +515,7 @@ func TestShortenURLHandler_DeleteBatch(t *testing.T) {
 	handler := ShortenURL{
 		shortener:     shortener,
 		authenticator: authenticator,
+		wg:            &sync.WaitGroup{},
 	}
 
 	result := sendTestRequest(http.MethodDelete, "/", bytes.NewBuffer([]byte(`["`+urlID+`"]`)), handler.DeleteBatch)

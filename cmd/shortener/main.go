@@ -2,13 +2,19 @@ package main
 
 import (
 	"compress/flate"
+	"context"
 	"crypto/tls"
 	"database/sql"
+	"errors"
 	"fmt"
 	"log"
 	"net"
 	"net/http"
 	"os"
+	"os/signal"
+	"sync"
+	"syscall"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
@@ -32,7 +38,9 @@ var (
 )
 
 func main() {
-	log.Fatal(Execute())
+	if err := Execute(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		log.Fatal(err)
+	}
 }
 
 // Execute запускает веб-сервер.
@@ -87,7 +95,8 @@ func Execute() error {
 			security.NewCookieTokenStorage(security.NewHMACTokenCreatorParser(cfg.HMACKey())),
 			&security.RequestContextUserProvider{},
 		)
-		sh = handler.NewShortenURL(a, service.NewShortener(store), cfg.BaseURL())
+		wg = &sync.WaitGroup{}
+		sh = handler.NewShortenURL(a, service.NewShortener(store), cfg.BaseURL(), wg)
 		dh = handler.NewDatabase(service.NewPinger(db))
 	)
 
@@ -107,33 +116,69 @@ func Execute() error {
 
 	fmt.Printf(buildInfo, buildVersion, buildDate, buildCommit)
 
-	if !cfg.EnableHTTPS() {
-		return http.ListenAndServe(cfg.ServerAddress(), r)
-	}
-
-	srv := &http.Server{
-		Handler: r,
-	}
-
-	cert, err := security.CreateCertificate()
-	if err != nil {
+	shutdownDone, err := startServer(cfg, r)
+	if err != nil && !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}
-	l, err := tls.Listen(
-		"tcp",
-		cfg.ServerAddress(),
-		&tls.Config{
-			Certificates: []tls.Certificate{cert},
-		},
-	)
-	if err != nil {
-		return err
-	}
-	defer func(l net.Listener) {
-		err = l.Close()
-	}(l)
 
-	err = srv.Serve(l)
+	<-shutdownDone
+	wg.Wait()
+
+	log.Println("Server gracefully shutdown")
 
 	return err
+}
+
+func startServer(cfg *config.Config, r *chi.Mux) (<-chan struct{}, error) {
+	var (
+		srv = &http.Server{
+			Addr:    cfg.ServerAddress(),
+			Handler: r,
+		}
+		sigCh          = make(chan os.Signal, 1)
+		shutdown       = make(chan struct{})
+		err      error = nil
+	)
+
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+	go func() {
+		<-sigCh
+		log.Println("Starting server graceful shutdown...")
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*15)
+		defer cancel()
+
+		if serr := srv.Shutdown(ctx); serr != nil {
+			log.Printf("Error while server gracefully shutdown: %v", serr)
+			if serr := srv.Close(); serr != nil {
+				log.Printf("Error while server force shutdown: %v", serr)
+			}
+		}
+		close(shutdown)
+	}()
+
+	if !cfg.EnableHTTPS() {
+		err = srv.ListenAndServe()
+	} else {
+		cert, cerr := security.CreateCertificate()
+		if cerr != nil {
+			return shutdown, cerr
+		}
+		l, cerr := tls.Listen(
+			"tcp",
+			cfg.ServerAddress(),
+			&tls.Config{
+				Certificates: []tls.Certificate{cert},
+			},
+		)
+		if cerr != nil {
+			return shutdown, cerr
+		}
+		defer func(l net.Listener) {
+			err = l.Close()
+		}(l)
+
+		err = srv.Serve(l)
+	}
+
+	return shutdown, err
 }
