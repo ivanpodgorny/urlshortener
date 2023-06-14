@@ -122,6 +122,14 @@ func (m *Memory) DeleteBatch(_ context.Context, urlIDs []string, userID string) 
 	return m.renewPersistent()
 }
 
+// GetStat возвращает количество сокращённых URL в сервисе и количество пользователей в сервисе.
+func (m *Memory) GetStat(_ context.Context) (int, int, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	return len(m.urls), len(m.userData), nil
+}
+
 func (m *Memory) loadDataInMemory() {
 	if m.persistent == nil {
 		return

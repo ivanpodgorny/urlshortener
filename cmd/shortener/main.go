@@ -112,6 +112,7 @@ func Execute() error {
 	r.Post("/api/shorten/batch", sh.CreateBatch)
 	r.Get("/api/user/urls", sh.GetAllByCurrentUser)
 	r.Delete("/api/user/urls", sh.DeleteBatch)
+	r.With(middleware.Internal(cfg.TrustedSubnet())).Get("/api/internal/stats", sh.GetStat)
 	r.Get("/ping", dh.Ping)
 
 	fmt.Printf(buildInfo, buildVersion, buildDate, buildCommit)

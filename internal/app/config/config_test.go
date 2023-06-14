@@ -19,6 +19,7 @@ func TestBuilder_LoadEnv(t *testing.T) {
 		hmacKey         = "key"
 		databaseDSN     = "dsn"
 		enableHTTPS     = "true"
+		trustedSubnet   = "192.168.0.0/24"
 		builder         = &Builder{
 			parameters: &parameters{},
 		}
@@ -30,6 +31,7 @@ func TestBuilder_LoadEnv(t *testing.T) {
 	require.NoError(t, os.Setenv("HMAC_KEY", hmacKey))
 	require.NoError(t, os.Setenv("DATABASE_DSN", databaseDSN))
 	require.NoError(t, os.Setenv("ENABLE_HTTPS", enableHTTPS))
+	require.NoError(t, os.Setenv("TRUSTED_SUBNET", trustedSubnet))
 
 	cfg, err := builder.LoadEnv().Build()
 	require.NoError(t, err)
@@ -39,6 +41,7 @@ func TestBuilder_LoadEnv(t *testing.T) {
 	assert.Equal(t, hmacKey, cfg.HMACKey())
 	assert.Equal(t, databaseDSN, cfg.DatabaseDSN())
 	assert.True(t, cfg.EnableHTTPS())
+	assert.Equal(t, trustedSubnet, cfg.TrustedSubnet())
 }
 
 func TestBuilder_LoadFile(t *testing.T) {
@@ -48,6 +51,7 @@ func TestBuilder_LoadFile(t *testing.T) {
 		fileStoragePath = "/path"
 		hmacKey         = "key"
 		databaseDSN     = "dsn"
+		trustedSubnet   = "192.168.0.0/24"
 	)
 	f, err := os.CreateTemp("", "config.json")
 	require.NoError(t, err)
@@ -58,6 +62,7 @@ func TestBuilder_LoadFile(t *testing.T) {
 		HMACKey:         hmacKey,
 		DatabaseDSN:     databaseDSN,
 		EnableHTTPS:     true,
+		TrustedSubnet:   trustedSubnet,
 	}
 	p, err := json.Marshal(configParameters)
 	require.NoError(t, err)
@@ -81,6 +86,7 @@ func TestBuilder_LoadFile(t *testing.T) {
 	assert.Equal(t, hmacKey, cfg.HMACKey())
 	assert.Equal(t, databaseDSN, cfg.DatabaseDSN())
 	assert.True(t, cfg.EnableHTTPS())
+	assert.Equal(t, trustedSubnet, cfg.TrustedSubnet())
 
 	_ = os.Remove(f.Name())
 }
@@ -91,6 +97,7 @@ func TestBuilder_LoadFlags(t *testing.T) {
 		baseURL         = "http://localhost:8080"
 		fileStoragePath = "/path"
 		databaseDSN     = "dsn"
+		trustedSubnet   = "192.168.0.0/24"
 		builder         = &Builder{
 			parameters: &parameters{},
 			flags:      flagParameters,
@@ -99,6 +106,7 @@ func TestBuilder_LoadFlags(t *testing.T) {
 				"-b", baseURL,
 				"-f", fileStoragePath,
 				"-d", databaseDSN,
+				"-t", trustedSubnet,
 				"-s",
 			},
 		}
@@ -111,4 +119,5 @@ func TestBuilder_LoadFlags(t *testing.T) {
 	assert.Equal(t, fileStoragePath, cfg.FileStoragePath())
 	assert.Equal(t, databaseDSN, cfg.DatabaseDSN())
 	assert.True(t, cfg.EnableHTTPS())
+	assert.Equal(t, trustedSubnet, cfg.TrustedSubnet())
 }

@@ -47,6 +47,12 @@ func (m *ShortenerMock) DeleteBatch(_ context.Context, urlIDs []string, userID s
 	return args.Error(0)
 }
 
+func (m *ShortenerMock) GetStat(_ context.Context) (int, int, error) {
+	args := m.Called()
+
+	return args.Int(0), args.Int(1), args.Error(2)
+}
+
 type BenchmarkShortener struct {
 	UserURLs map[string]string
 }
@@ -65,6 +71,10 @@ func (s BenchmarkShortener) GetAllUser(_ context.Context, _ string) map[string]s
 
 func (BenchmarkShortener) DeleteBatch(_ context.Context, _ []string, _ string) error {
 	return nil
+}
+
+func (BenchmarkShortener) GetStat(_ context.Context) (int, int, error) {
+	return 0, 0, nil
 }
 
 type AuthenticatorMock struct {
@@ -530,6 +540,48 @@ func TestShortenURLHandler_DeleteBatch(t *testing.T) {
 	shortener.AssertExpectations(t)
 }
 
+func TestShortenURLHandler_GetStatSuccess(t *testing.T) {
+	var (
+		urlCount   = 2
+		usersCount = 1
+		shortener  = &ShortenerMock{}
+	)
+
+	shortener.On("GetStat").Return(urlCount, usersCount, nil).Once()
+	handler := ShortenURL{
+		shortener: shortener,
+	}
+
+	result := sendTestRequest(http.MethodPost, "/", nil, handler.GetStat)
+	assert.Equal(t, http.StatusOK, result.StatusCode)
+	assert.Equal(t, "application/json", result.Header.Get("Content-Type"))
+	b, err := io.ReadAll(result.Body)
+	require.NoError(t, err)
+	resp := struct {
+		URLCount   int `json:"urls"`
+		UsersCount int `json:"users"`
+	}{}
+	err = json.Unmarshal(b, &resp)
+	require.NoError(t, err)
+	assert.Equal(t, urlCount, resp.URLCount)
+	assert.Equal(t, usersCount, resp.UsersCount)
+	require.NoError(t, result.Body.Close())
+	shortener.AssertExpectations(t)
+}
+
+func TestShortenURLHandler_GetStatError(t *testing.T) {
+	shortener := &ShortenerMock{}
+	shortener.On("GetStat").Return(0, 0, errors.New("")).Once()
+	handler := ShortenURL{
+		shortener: shortener,
+	}
+
+	result := sendTestRequest(http.MethodPost, "/", nil, handler.GetStat)
+	assert.Equal(t, http.StatusInternalServerError, result.StatusCode)
+	require.NoError(t, result.Body.Close())
+	shortener.AssertExpectations(t)
+}
+
 func TestUserAuthenticationErrors(t *testing.T) {
 	authenticator := &AuthenticatorMock{}
 	authenticator.On("UserIdentifier").Return("userID", errors.New("")).Times(4)
@@ -673,5 +725,13 @@ func BenchmarkShortenURLHandler_DeleteBatch(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		sendBenchmarkRequest(http.MethodDelete, "/", bytes.NewBuffer(body), handler.DeleteBatch)
+	}
+}
+
+func BenchmarkShortenURLHandler_GetStat(b *testing.B) {
+	handler := CreateBenchmarkShortenURLHandler(b)
+
+	for i := 0; i < b.N; i++ {
+		sendBenchmarkRequest(http.MethodGet, "/", nil, handler.GetStat)
 	}
 }
