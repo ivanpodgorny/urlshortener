@@ -29,8 +29,8 @@ func (m *ShortenerMock) Shorten(_ context.Context, url, userID string) (string, 
 	return args.String(0), args.Bool(1), args.Error(2)
 }
 
-func (m *ShortenerMock) Get(_ context.Context, _ string) (string, error) {
-	args := m.Called()
+func (m *ShortenerMock) Get(_ context.Context, id string) (string, error) {
+	args := m.Called(id)
 
 	return args.String(0), args.Error(1)
 }
@@ -81,7 +81,7 @@ type AuthenticatorMock struct {
 	mock.Mock
 }
 
-func (m *AuthenticatorMock) UserIdentifier(_ *http.Request) (string, error) {
+func (m *AuthenticatorMock) UserIdentifier(_ context.Context) (string, error) {
 	args := m.Called()
 
 	return args.String(0), args.Error(1)
@@ -89,7 +89,7 @@ func (m *AuthenticatorMock) UserIdentifier(_ *http.Request) (string, error) {
 
 type NullAuthenticator struct{}
 
-func (NullAuthenticator) UserIdentifier(_ *http.Request) (string, error) {
+func (NullAuthenticator) UserIdentifier(_ context.Context) (string, error) {
 	return "", nil
 }
 
@@ -401,7 +401,7 @@ func TestShortenURLHandler_GetSuccess(t *testing.T) {
 		shortener = &ShortenerMock{}
 	)
 
-	shortener.On("Get").Return(url, nil).Once()
+	shortener.On("Get", "").Return(url, nil).Once()
 	handler := ShortenURL{
 		shortener: shortener,
 	}
@@ -420,7 +420,7 @@ func TestShortenURLHandler_GetDeleted(t *testing.T) {
 		shortener = &ShortenerMock{}
 	)
 
-	shortener.On("Get").Return("", inerr.ErrURLIsDeleted).Once()
+	shortener.On("Get", "").Return("", inerr.ErrURLIsDeleted).Once()
 	handler := ShortenURL{
 		shortener: shortener,
 	}
@@ -438,7 +438,7 @@ func TestShortenURLHandler_GetWithErrors(t *testing.T) {
 		shortener = &ShortenerMock{}
 	)
 
-	shortener.On("Get").Return("", errors.New("")).Once()
+	shortener.On("Get", "").Return("", errors.New("")).Once()
 	handler := ShortenURL{
 		shortener: shortener,
 	}

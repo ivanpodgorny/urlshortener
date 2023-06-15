@@ -6,6 +6,9 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 )
 
 type userIDContextKey string
@@ -78,8 +81,8 @@ type RequestContextUserProvider struct {
 }
 
 // Identifier получает ID пользователя из контекста запроса.
-func (RequestContextUserProvider) Identifier(r *http.Request) (string, error) {
-	val := r.Context().Value(userIDKey)
+func (RequestContextUserProvider) Identifier(ctx context.Context) (string, error) {
+	val := ctx.Value(userIDKey)
 	if val == nil {
 		return "", ErrUserNotFound
 	}
@@ -90,6 +93,37 @@ func (RequestContextUserProvider) Identifier(r *http.Request) (string, error) {
 // SetIdentifier устанавливает ID пользователя в контекст запроса.
 func (RequestContextUserProvider) SetIdentifier(id string, r *http.Request) *http.Request {
 	return r.WithContext(context.WithValue(r.Context(), userIDKey, id))
+}
+
+// GRPCContextUserProvider реализует методы для получения данных пользвателя из контекста GRPC-запроса.
+type GRPCContextUserProvider struct {
+}
+
+// NewGRPCContextUserProvider возвращает указатель на новый экземпляр GRPCContextUserProvider.
+func NewGRPCContextUserProvider() *GRPCContextUserProvider {
+	return &GRPCContextUserProvider{}
+}
+
+// Identifier получает ID пользователя из контекста GRPC-запроса.
+func (GRPCContextUserProvider) Identifier(ctx context.Context) (string, error) {
+	val := ctx.Value(userIDKey)
+	if val == nil {
+		md, ok := metadata.FromIncomingContext(ctx)
+		if !ok || len(md.Get(userIDCookie)) == 0 || md.Get(userIDCookie)[0] == "" {
+			return "", ErrUserNotFound
+		}
+
+		return md.Get(userIDCookie)[0], nil
+	}
+
+	return val.(string), nil
+}
+
+// SetIdentifier устанавливает ID пользователя в контекст GRPC-запроса.
+func (GRPCContextUserProvider) SetIdentifier(id string, ctx context.Context) context.Context {
+	_ = grpc.SendHeader(ctx, metadata.Pairs(userIDCookie, id))
+
+	return context.WithValue(ctx, userIDKey, id)
 }
 
 // HMACTokenCreatorParser реализует методы для создания и чтения аутентификационного токена.

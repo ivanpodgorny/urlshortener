@@ -23,19 +23,21 @@ type Builder struct {
 }
 
 type parameters struct {
-	ServerAddress   string `env:"SERVER_ADDRESS" json:"server_address"`
-	BaseURL         string `env:"BASE_URL" json:"base_url"`
-	FileStoragePath string `env:"FILE_STORAGE_PATH" json:"file_storage_path"`
-	HMACKey         string `env:"HMAC_KEY" json:"hmac_key"`
-	DatabaseDSN     string `env:"DATABASE_DSN" json:"database_dsn"`
-	ConfigFile      string
-	TrustedSubnet   string `env:"TRUSTED_SUBNET" json:"trusted_subnet"`
-	EnableHTTPS     bool   `env:"ENABLE_HTTPS" json:"enable_https"`
+	ServerAddress     string `env:"SERVER_ADDRESS" json:"server_address"`
+	GRPCServerAddress string `env:"GRPC_SERVER_ADDRESS" json:"grpc_server_address"`
+	BaseURL           string `env:"BASE_URL" json:"base_url"`
+	FileStoragePath   string `env:"FILE_STORAGE_PATH" json:"file_storage_path"`
+	HMACKey           string `env:"HMAC_KEY" json:"hmac_key"`
+	DatabaseDSN       string `env:"DATABASE_DSN" json:"database_dsn"`
+	ConfigFile        string
+	TrustedSubnet     string `env:"TRUSTED_SUBNET" json:"trusted_subnet"`
+	EnableHTTPS       bool   `env:"ENABLE_HTTPS" json:"enable_https"`
 }
 
 const (
-	defaultServerAddress = "localhost:8080"
-	defaultBaseURL       = "http://localhost:8080"
+	defaultServerAddress     = "localhost:8080"
+	defaultGRPCServerAddress = "localhost:3200"
+	defaultBaseURL           = "http://localhost:8080"
 )
 
 // NewBuilder возвращает указатель на новый экземпляр Builder.
@@ -43,8 +45,9 @@ func NewBuilder() *Builder {
 	b := &Builder{
 		arguments: os.Args[1:],
 		parameters: &parameters{
-			ServerAddress: defaultServerAddress,
-			BaseURL:       defaultBaseURL,
+			ServerAddress:     defaultServerAddress,
+			GRPCServerAddress: defaultGRPCServerAddress,
+			BaseURL:           defaultBaseURL,
 		},
 		flags: &parameters{},
 	}
@@ -87,6 +90,9 @@ func (b *Builder) LoadFlags() *Builder {
 
 	if b.flags.ServerAddress != "" {
 		b.parameters.ServerAddress = b.flags.ServerAddress
+	}
+	if b.flags.GRPCServerAddress != "" {
+		b.parameters.GRPCServerAddress = b.flags.GRPCServerAddress
 	}
 	if b.flags.BaseURL != "" {
 		b.parameters.BaseURL = b.flags.BaseURL
@@ -145,6 +151,7 @@ func (b *Builder) Build() (*Config, error) {
 
 func (b *Builder) prepareFlags() {
 	flag.StringVar(&b.flags.ServerAddress, "a", b.parameters.ServerAddress, "адрес запуска HTTP-сервера")
+	flag.StringVar(&b.flags.GRPCServerAddress, "g", b.parameters.GRPCServerAddress, "адрес запуска GRPC-сервера")
 	flag.StringVar(&b.flags.BaseURL, "b", b.parameters.BaseURL, "базовый адрес результирующего сокращённого URL")
 	flag.StringVar(&b.flags.FileStoragePath, "f", b.parameters.FileStoragePath, "путь к файлу для хранения сокращенных URL")
 	flag.StringVar(&b.flags.DatabaseDSN, "d", b.parameters.DatabaseDSN, "адрес подключения к PostgreSQL")
@@ -154,9 +161,14 @@ func (b *Builder) prepareFlags() {
 	flag.StringVar(&b.flags.ConfigFile, "config", b.parameters.ConfigFile, "путь к конфигурационному файлу")
 }
 
-// ServerAddress возвращает значение адреса сервера.
+// ServerAddress возвращает значение адреса HTTP-сервера.
 func (c *Config) ServerAddress() string {
 	return c.parameters.ServerAddress
+}
+
+// GRPCServerAddress возвращает значение адреса GRPC-сервера.
+func (c *Config) GRPCServerAddress() string {
+	return c.parameters.GRPCServerAddress
 }
 
 // BaseURL возвращает значение базового URL сокращенных ссылок.

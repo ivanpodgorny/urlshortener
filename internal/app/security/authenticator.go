@@ -1,16 +1,19 @@
 package security
 
-import "net/http"
+import (
+	"context"
+	"net/http"
+)
 
 // Authenticator реализует методы для аутентификации и получения данных
 // аутентифицированного пользователя.
 type Authenticator struct {
 	storage      TokenStorage[*http.Request, http.ResponseWriter]
-	userProvider UserProvider[*http.Request, *http.Request]
+	userProvider UserProvider[context.Context, *http.Request]
 }
 
 // NewAuthenticator возвращает указатель на новый экземпляр Authenticator.
-func NewAuthenticator(s TokenStorage[*http.Request, http.ResponseWriter], p UserProvider[*http.Request, *http.Request]) *Authenticator {
+func NewAuthenticator(s TokenStorage[*http.Request, http.ResponseWriter], p UserProvider[context.Context, *http.Request]) *Authenticator {
 	return &Authenticator{
 		storage:      s,
 		userProvider: p,
@@ -31,8 +34,8 @@ func (a Authenticator) Authenticate(w http.ResponseWriter, r *http.Request) *htt
 }
 
 // UserIdentifier возвращает идентификатор аутентифицированного пользователя из UserProvider.
-func (a Authenticator) UserIdentifier(r *http.Request) (string, error) {
-	return a.userProvider.Identifier(r)
+func (a Authenticator) UserIdentifier(ctx context.Context) (string, error) {
+	return a.userProvider.Identifier(ctx)
 }
 
 func (a Authenticator) generateID() string {

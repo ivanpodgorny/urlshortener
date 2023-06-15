@@ -19,11 +19,11 @@ func TestAuthenticator(t *testing.T) {
 		recorder = httptest.NewRecorder()
 	)
 
-	_, err := authenticator.UserIdentifier(request)
+	_, err := authenticator.UserIdentifier(request.Context())
 	assert.Error(t, err, "неаутентифицированный пользователь")
 
 	request = authenticator.Authenticate(recorder, request)
-	id, err := authenticator.UserIdentifier(request)
+	id, err := authenticator.UserIdentifier(request.Context())
 	assert.NoError(t, err, "создание нового токена для пользователя")
 
 	resp := recorder.Result()
@@ -31,7 +31,7 @@ func TestAuthenticator(t *testing.T) {
 
 	request.AddCookie(resp.Cookies()[0])
 	request = authenticator.Authenticate(recorder, request)
-	idFromCookies, err := authenticator.UserIdentifier(request)
+	idFromCookies, err := authenticator.UserIdentifier(request.Context())
 	assert.NoError(t, err, "получение существующего токена пользователя")
 	assert.Equal(t, id, idFromCookies, "получение существующего токена пользователя")
 }

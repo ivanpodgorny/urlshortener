@@ -25,7 +25,7 @@ type ShortenURL struct {
 
 // IdentityProvider интерфейс для получения ID пользователя, выполнившего запрос.
 type IdentityProvider interface {
-	UserIdentifier(r *http.Request) (string, error)
+	UserIdentifier(ctx context.Context) (string, error)
 }
 
 // Shortener интерфейс сервиса сокращения и получения URL.
@@ -52,7 +52,7 @@ func NewShortenURL(a IdentityProvider, s Shortener, b string, wg *sync.WaitGroup
 // Create обрабатывает запрос на создание сокращенного URL.
 // Оригинальный URL передается в теле запроса. В теле ответа приходит сокращенный URL.
 func (h ShortenURL) Create(w http.ResponseWriter, r *http.Request) {
-	userID, err := h.authenticator.UserIdentifier(r)
+	userID, err := h.authenticator.UserIdentifier(r.Context())
 	if err != nil {
 		unauthorized(w)
 
@@ -92,7 +92,7 @@ func (h ShortenURL) Create(w http.ResponseWriter, r *http.Request) {
 //
 // с сокращенным URL.
 func (h ShortenURL) CreateJSON(w http.ResponseWriter, r *http.Request) {
-	userID, err := h.authenticator.UserIdentifier(r)
+	userID, err := h.authenticator.UserIdentifier(r.Context())
 	if err != nil {
 		unauthorized(w)
 
@@ -143,7 +143,7 @@ func (h ShortenURL) CreateJSON(w http.ResponseWriter, r *http.Request) {
 //
 // с сокращенными URL.
 func (h ShortenURL) CreateBatch(w http.ResponseWriter, r *http.Request) {
-	userID, err := h.authenticator.UserIdentifier(r)
+	userID, err := h.authenticator.UserIdentifier(r.Context())
 	if err != nil {
 		unauthorized(w)
 
@@ -215,7 +215,7 @@ func (h ShortenURL) Get(w http.ResponseWriter, r *http.Request) {
 //
 //	[{"short_url": "http://...", "original_url": "http://..."}, ...]
 func (h ShortenURL) GetAllByCurrentUser(w http.ResponseWriter, r *http.Request) {
-	userID, err := h.authenticator.UserIdentifier(r)
+	userID, err := h.authenticator.UserIdentifier(r.Context())
 	if err != nil {
 		unauthorized(w)
 
@@ -250,7 +250,7 @@ func (h ShortenURL) GetAllByCurrentUser(w http.ResponseWriter, r *http.Request) 
 //
 // В случае успешного приема запроса возвращает ответ с кодом 202.
 func (h ShortenURL) DeleteBatch(w http.ResponseWriter, r *http.Request) {
-	userID, err := h.authenticator.UserIdentifier(r)
+	userID, err := h.authenticator.UserIdentifier(r.Context())
 	if err != nil {
 		unauthorized(w)
 
