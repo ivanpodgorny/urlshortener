@@ -16,6 +16,12 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/ivanpodgorny/urlshortener/internal/app/interceptor"
+
+	"google.golang.org/grpc"
+
+	"github.com/ivanpodgorny/urlshortener/internal/proto"
+
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -90,15 +96,24 @@ func Execute() error {
 	}
 
 	var (
-		r = chi.NewRouter()
-		a = security.NewAuthenticator(
-			security.NewCookieTokenStorage(security.NewHMACTokenCreatorParser(cfg.HMACKey())),
+		r  = chi.NewRouter()
+		cp = security.NewHMACTokenCreatorParser(cfg.HMACKey())
+		a  = security.NewAuthenticator(
+			security.NewCookieTokenStorage(cp),
 			&security.RequestContextUserProvider{},
 		)
+		ga = security.NewGRPCAuthenticator(cp, security.NewGRPCContextUserProvider())
 		wg = &sync.WaitGroup{}
-		sh = handler.NewShortenURL(a, service.NewShortener(store), cfg.BaseURL(), wg)
+		ss = service.NewShortener(store)
+		sh = handler.NewShortenURL(a, ss, cfg.BaseURL(), wg)
 		dh = handler.NewDatabase(service.NewPinger(db))
 	)
+
+	go func() {
+		if err = startGRPCServer(cfg, ss, ga); err != nil {
+			log.Printf("GRPC server error: %v", err)
+		}
+	}()
 
 	r.Use(chimiddleware.Recoverer)
 	r.Use(chimiddleware.Compress(flate.BestSpeed))
@@ -117,7 +132,7 @@ func Execute() error {
 
 	fmt.Printf(buildInfo, buildVersion, buildDate, buildCommit)
 
-	shutdownDone, err := startServer(cfg, r)
+	shutdownDone, err := startHTTPServer(cfg, r)
 	if err != nil && !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}
@@ -130,7 +145,7 @@ func Execute() error {
 	return err
 }
 
-func startServer(cfg *config.Config, r *chi.Mux) (<-chan struct{}, error) {
+func startHTTPServer(cfg *config.Config, r *chi.Mux) (<-chan struct{}, error) {
 	var (
 		srv = &http.Server{
 			Addr:    cfg.ServerAddress(),
@@ -182,4 +197,16 @@ func startServer(cfg *config.Config, r *chi.Mux) (<-chan struct{}, error) {
 	}
 
 	return shutdown, err
+}
+
+func startGRPCServer(cfg *config.Config, s handler.Shortener, a *security.GRPCAuthenticator) error {
+	listen, err := net.Listen("tcp", cfg.GRPCServerAddress())
+	if err != nil {
+		return err
+	}
+
+	gs := grpc.NewServer(grpc.UnaryInterceptor(interceptor.Authenticate(a)))
+	proto.RegisterShortenerServer(gs, handler.NewShortenerGRPCServer(a, s))
+
+	return gs.Serve(listen)
 }

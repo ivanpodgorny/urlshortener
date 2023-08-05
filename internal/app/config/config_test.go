@@ -13,19 +13,21 @@ var flagParameters = &parameters{}
 
 func TestBuilder_LoadEnv(t *testing.T) {
 	var (
-		serverAddress   = "localhost:8080"
-		baseURL         = "http://localhost:8080"
-		fileStoragePath = "/path"
-		hmacKey         = "key"
-		databaseDSN     = "dsn"
-		enableHTTPS     = "true"
-		trustedSubnet   = "192.168.0.0/24"
-		builder         = &Builder{
+		serverAddress     = "localhost:8080"
+		grpcServerAddress = "localhost:50051"
+		baseURL           = "http://localhost:8080"
+		fileStoragePath   = "/path"
+		hmacKey           = "key"
+		databaseDSN       = "dsn"
+		enableHTTPS       = "true"
+		trustedSubnet     = "192.168.0.0/24"
+		builder           = &Builder{
 			parameters: &parameters{},
 		}
 	)
 
 	require.NoError(t, os.Setenv("SERVER_ADDRESS", serverAddress))
+	require.NoError(t, os.Setenv("GRPC_SERVER_ADDRESS", grpcServerAddress))
 	require.NoError(t, os.Setenv("BASE_URL", baseURL))
 	require.NoError(t, os.Setenv("FILE_STORAGE_PATH", fileStoragePath))
 	require.NoError(t, os.Setenv("HMAC_KEY", hmacKey))
@@ -36,6 +38,7 @@ func TestBuilder_LoadEnv(t *testing.T) {
 	cfg, err := builder.LoadEnv().Build()
 	require.NoError(t, err)
 	assert.Equal(t, serverAddress, cfg.ServerAddress())
+	assert.Equal(t, grpcServerAddress, cfg.GRPCServerAddress())
 	assert.Equal(t, baseURL, cfg.BaseURL())
 	assert.Equal(t, fileStoragePath, cfg.FileStoragePath())
 	assert.Equal(t, hmacKey, cfg.HMACKey())
@@ -46,23 +49,25 @@ func TestBuilder_LoadEnv(t *testing.T) {
 
 func TestBuilder_LoadFile(t *testing.T) {
 	var (
-		serverAddress   = "localhost:8080"
-		baseURL         = "http://localhost:8080"
-		fileStoragePath = "/path"
-		hmacKey         = "key"
-		databaseDSN     = "dsn"
-		trustedSubnet   = "192.168.0.0/24"
+		serverAddress     = "localhost:8080"
+		grpcServerAddress = "localhost:50051"
+		baseURL           = "http://localhost:8080"
+		fileStoragePath   = "/path"
+		hmacKey           = "key"
+		databaseDSN       = "dsn"
+		trustedSubnet     = "192.168.0.0/24"
 	)
 	f, err := os.CreateTemp("", "config.json")
 	require.NoError(t, err)
 	configParameters := &parameters{
-		ServerAddress:   serverAddress,
-		BaseURL:         baseURL,
-		FileStoragePath: fileStoragePath,
-		HMACKey:         hmacKey,
-		DatabaseDSN:     databaseDSN,
-		EnableHTTPS:     true,
-		TrustedSubnet:   trustedSubnet,
+		ServerAddress:     serverAddress,
+		GRPCServerAddress: grpcServerAddress,
+		BaseURL:           baseURL,
+		FileStoragePath:   fileStoragePath,
+		HMACKey:           hmacKey,
+		DatabaseDSN:       databaseDSN,
+		EnableHTTPS:       true,
+		TrustedSubnet:     trustedSubnet,
 	}
 	p, err := json.Marshal(configParameters)
 	require.NoError(t, err)
@@ -81,6 +86,7 @@ func TestBuilder_LoadFile(t *testing.T) {
 	cfg, err := builder.LoadFile().Build()
 	require.NoError(t, err)
 	assert.Equal(t, serverAddress, cfg.ServerAddress())
+	assert.Equal(t, grpcServerAddress, cfg.GRPCServerAddress())
 	assert.Equal(t, baseURL, cfg.BaseURL())
 	assert.Equal(t, fileStoragePath, cfg.FileStoragePath())
 	assert.Equal(t, hmacKey, cfg.HMACKey())
@@ -93,16 +99,18 @@ func TestBuilder_LoadFile(t *testing.T) {
 
 func TestBuilder_LoadFlags(t *testing.T) {
 	var (
-		serverAddress   = "localhost:8080"
-		baseURL         = "http://localhost:8080"
-		fileStoragePath = "/path"
-		databaseDSN     = "dsn"
-		trustedSubnet   = "192.168.0.0/24"
-		builder         = &Builder{
+		serverAddress     = "localhost:8080"
+		grpcServerAddress = "localhost:50051"
+		baseURL           = "http://localhost:8080"
+		fileStoragePath   = "/path"
+		databaseDSN       = "dsn"
+		trustedSubnet     = "192.168.0.0/24"
+		builder           = &Builder{
 			parameters: &parameters{},
 			flags:      flagParameters,
 			arguments: []string{
 				"-a", serverAddress,
+				"-g", grpcServerAddress,
 				"-b", baseURL,
 				"-f", fileStoragePath,
 				"-d", databaseDSN,
@@ -115,6 +123,7 @@ func TestBuilder_LoadFlags(t *testing.T) {
 	cfg, err := builder.LoadFlags().Build()
 	require.NoError(t, err)
 	assert.Equal(t, serverAddress, cfg.ServerAddress())
+	assert.Equal(t, grpcServerAddress, cfg.GRPCServerAddress())
 	assert.Equal(t, baseURL, cfg.BaseURL())
 	assert.Equal(t, fileStoragePath, cfg.FileStoragePath())
 	assert.Equal(t, databaseDSN, cfg.DatabaseDSN())

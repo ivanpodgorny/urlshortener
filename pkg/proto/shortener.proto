@@ -1,0 +1,56 @@
+syntax = "proto3";
+
+package shortener;
+
+option go_package = "github.com/ivanpodgorny/urlshortener/internal/proto";
+
+message URLData {
+  string url = 1;
+  string id = 2;
+}
+
+message CreateLinkRequest {
+  string url = 1;
+}
+
+message CreateLinkResponse {
+  string id = 2;
+}
+
+message CreateLinkBatchRequest {
+  repeated string urls = 1;
+}
+
+message CreateLinkBatchResponse {
+  repeated URLData urls = 2;
+}
+
+message GetURLRequest {
+  string id = 1;
+}
+
+message GetURLResponse {
+  string url = 2;
+}
+
+message GetAllURLRequest {
+}
+
+message GetAllURLResponse {
+  repeated URLData urls = 2;
+}
+
+message DeleteURLBatchRequest {
+  repeated string ids = 1;
+}
+
+message DeleteURLBatchResponse {
+}
+
+service Shortener {
+  rpc CreateLink(CreateLinkRequest) returns (CreateLinkResponse);
+  rpc CreateLinkBatch(CreateLinkBatchRequest) returns (CreateLinkBatchResponse);
+  rpc GetURL(GetURLRequest) returns (GetURLResponse);
+  rpc GetAllURL(GetAllURLRequest) returns (GetAllURLResponse);
+  rpc DeleteURLBatch(DeleteURLBatchRequest) returns (DeleteURLBatchResponse);
+}
