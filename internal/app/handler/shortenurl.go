@@ -34,6 +34,7 @@ type Shortener interface {
 	Get(ctx context.Context, id string) (string, error)
 	GetAllUser(ctx context.Context, userID string) map[string]string
 	DeleteBatch(ctx context.Context, urlIDs []string, userID string) error
+	GetStat(context.Context) (urlCount int, usersCount int, err error)
 }
 
 const deleteBatchSize = 250
@@ -284,6 +285,29 @@ func (h ShortenURL) DeleteBatch(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusAccepted)
+}
+
+// GetStat возвращает статистику использования сервиса в фомате
+//
+//	{
+//	    "urls": <int>, (количество сокращённых URL в сервисе)
+//	    "users": <int> (количество пользователей в сервисе)
+//	}
+func (h ShortenURL) GetStat(w http.ResponseWriter, r *http.Request) {
+	urlCount, usersCount, err := h.shortener.GetStat(r.Context())
+	if err != nil {
+		serverError(w)
+
+		return
+	}
+
+	responseAsJSON(w, struct {
+		URLCount   int `json:"urls"`
+		UsersCount int `json:"users"`
+	}{
+		URLCount:   urlCount,
+		UsersCount: usersCount,
+	}, http.StatusOK)
 }
 
 func (h ShortenURL) validateURL(u string) bool {

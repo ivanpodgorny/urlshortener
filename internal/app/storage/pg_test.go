@@ -45,6 +45,10 @@ func TestPgRealConnection(t *testing.T) {
 	insertedID, err := s.Add(ctx, id, url, userID)
 	assert.NoError(t, err, "добавление новой записи")
 	assert.Equal(t, id, insertedID, "добавление новой записи")
+	urlCount, usersCount, err := s.GetStat(ctx)
+	assert.NoError(t, err, "получение статистики")
+	assert.Equal(t, 1, urlCount, "получение статистики")
+	assert.Equal(t, 1, usersCount, "получение статистики")
 	stored, err := s.Get(ctx, id)
 	assert.NoError(t, err, "получение записи")
 	assert.Equal(t, url, stored, "получение записи")
@@ -93,6 +97,37 @@ func TestPgUniqueUrl(t *testing.T) {
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
+func TestPg_GetStatSuccess(t *testing.T) {
+	var (
+		urlCount   = 2
+		usersCount = 1
+	)
+
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
+	require.NoError(t, err)
+	s := NewPg(db)
+
+	mock.ExpectQuery("select count(url), count(distinct user_id) from urls where deleted = false").
+		WillReturnRows(sqlmock.NewRows([]string{"count", "count"}).AddRow(urlCount, usersCount))
+
+	getURLCount, getUsersCount, err := s.GetStat(context.Background())
+	assert.NoError(t, err)
+	assert.Equal(t, urlCount, getURLCount)
+	assert.Equal(t, usersCount, getUsersCount)
+}
+
+func TestPg_GetStatError(t *testing.T) {
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
+	require.NoError(t, err)
+	s := NewPg(db)
+
+	mock.ExpectQuery("select count(url), count(distinct user_id) from urls where deleted = false").
+		WillReturnError(errors.New(""))
+
+	_, _, err = s.GetStat(context.Background())
+	assert.Error(t, err)
+}
+
 func BenchmarkPg_GetAllUser(b *testing.B) {
 	var (
 		db, mock, _ = sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
@@ -137,6 +172,22 @@ func BenchmarkPg_DeleteBatch(b *testing.B) {
 			WithArgs(args...).
 			WillReturnResult(sqlmock.NewResult(0, 1))
 		_ = s.DeleteBatch(ctx, urlIDs, userID)
+	}
+}
+
+func BenchmarkPg_GetStat(b *testing.B) {
+	var (
+		db, mock, _ = sqlmock.New()
+		s           = NewPg(db)
+		ctx         = context.Background()
+		urlCount    = 1
+		usersCount  = 1
+	)
+
+	for i := 0; i < b.N; i++ {
+		mock.ExpectQuery("select count(url), count(distinct user_id)").
+			WillReturnRows(sqlmock.NewRows([]string{"count", "count"}).AddRow(urlCount, usersCount))
+		_, _, _ = s.GetStat(ctx)
 	}
 }
 

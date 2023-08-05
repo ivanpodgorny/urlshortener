@@ -39,22 +39,31 @@ func (m *StorageMock) DeleteBatch(_ context.Context, urlIDs []string, userID str
 	return args.Error(0)
 }
 
+func (m *StorageMock) GetStat(_ context.Context) (int, int, error) {
+	args := m.Called()
+
+	return args.Int(0), args.Int(1), args.Error(2)
+}
+
 func TestShortener(t *testing.T) {
 	var (
-		userID  = "438c4b98-fc98-45cf-ac63-c4a86fbd4ff4"
-		url     = "https://ya.ru/"
-		urlID   = "1i-CBrzwyMkL"
-		urlIDs  = []string{urlID}
-		urls    = map[string]string{urlID: url}
-		ctx     = context.Background()
-		storage = &StorageMock{}
+		userID     = "438c4b98-fc98-45cf-ac63-c4a86fbd4ff4"
+		url        = "https://ya.ru/"
+		urlID      = "1i-CBrzwyMkL"
+		urlIDs     = []string{urlID}
+		urls       = map[string]string{urlID: url}
+		urlCount   = 2
+		usersCount = 1
+		ctx        = context.Background()
+		storage    = &StorageMock{}
 	)
 
 	storage.
 		On("Add", url, userID).Return(nil).Once().
 		On("Get", urlID).Return(url, nil).Once().
 		On("GetAllUser", userID).Return(urls).Once().
-		On("DeleteBatch", urlIDs, userID).Return(nil).Once()
+		On("DeleteBatch", urlIDs, userID).Return(nil).Once().
+		On("GetStat").Return(urlCount, usersCount, nil).Once()
 	shortener := Shortener{
 		storage: storage,
 	}
@@ -69,6 +78,10 @@ func TestShortener(t *testing.T) {
 	assert.Equal(t, urls, userURLs)
 	err = shortener.DeleteBatch(ctx, urlIDs, userID)
 	assert.NoError(t, err)
+	getURLCount, getUsersCount, err := shortener.GetStat(ctx)
+	assert.NoError(t, err)
+	assert.Equal(t, urlCount, getURLCount)
+	assert.Equal(t, usersCount, getUsersCount)
 	storage.AssertExpectations(t)
 }
 
@@ -85,7 +98,8 @@ func TestShortenerReturnsError(t *testing.T) {
 	storage.
 		On("Add", url, userID).Return(errors.New("")).Once().
 		On("Get", urlID).Return("", errors.New("")).Once().
-		On("DeleteBatch", urlIDs, userID).Return(inerr.ErrURLIsDeleted).Once()
+		On("DeleteBatch", urlIDs, userID).Return(inerr.ErrURLIsDeleted).Once().
+		On("GetStat").Return(0, 0, errors.New("")).Once()
 	shortener := Shortener{
 		storage: storage,
 	}
@@ -96,5 +110,7 @@ func TestShortenerReturnsError(t *testing.T) {
 	assert.Error(t, err)
 	err = shortener.DeleteBatch(ctx, urlIDs, userID)
 	assert.ErrorIs(t, err, inerr.ErrURLIsDeleted)
+	_, _, err = shortener.GetStat(ctx)
+	assert.Error(t, err)
 	storage.AssertExpectations(t)
 }

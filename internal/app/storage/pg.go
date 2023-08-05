@@ -111,3 +111,15 @@ where user_id = $1
 
 	return err
 }
+
+// GetStat возвращает количество сокращённых URL в сервисе и количество пользователей в сервисе.
+func (p *Pg) GetStat(ctx context.Context) (urlCount int, usersCount int, err error) {
+	err = p.db.
+		QueryRowContext(ctx, "select count(url), count(distinct user_id) from urls where deleted = false").
+		Scan(&urlCount, &usersCount)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	return urlCount, usersCount, nil
+}

@@ -29,7 +29,8 @@ type parameters struct {
 	HMACKey         string `env:"HMAC_KEY" json:"hmac_key"`
 	DatabaseDSN     string `env:"DATABASE_DSN" json:"database_dsn"`
 	ConfigFile      string
-	EnableHTTPS     bool `env:"ENABLE_HTTPS" json:"enable_https"`
+	TrustedSubnet   string `env:"TRUSTED_SUBNET" json:"trusted_subnet"`
+	EnableHTTPS     bool   `env:"ENABLE_HTTPS" json:"enable_https"`
 }
 
 const (
@@ -102,6 +103,9 @@ func (b *Builder) LoadFlags() *Builder {
 	if b.flags.EnableHTTPS {
 		b.parameters.EnableHTTPS = b.flags.EnableHTTPS
 	}
+	if b.flags.TrustedSubnet != "" {
+		b.parameters.TrustedSubnet = b.flags.TrustedSubnet
+	}
 
 	return b
 }
@@ -145,6 +149,7 @@ func (b *Builder) prepareFlags() {
 	flag.StringVar(&b.flags.FileStoragePath, "f", b.parameters.FileStoragePath, "путь к файлу для хранения сокращенных URL")
 	flag.StringVar(&b.flags.DatabaseDSN, "d", b.parameters.DatabaseDSN, "адрес подключения к PostgreSQL")
 	flag.BoolVar(&b.flags.EnableHTTPS, "s", b.parameters.EnableHTTPS, "включает HTTPS в веб-сервере")
+	flag.StringVar(&b.flags.TrustedSubnet, "t", b.parameters.TrustedSubnet, "CIDR доверенной подсети")
 	flag.StringVar(&b.flags.ConfigFile, "c", b.parameters.ConfigFile, "путь к конфигурационному файлу")
 	flag.StringVar(&b.flags.ConfigFile, "config", b.parameters.ConfigFile, "путь к конфигурационному файлу")
 }
@@ -177,4 +182,9 @@ func (c *Config) DatabaseDSN() string {
 // EnableHTTPS возвращает значение флага включения HTTPS в веб-сервере.
 func (c *Config) EnableHTTPS() bool {
 	return c.parameters.EnableHTTPS
+}
+
+// TrustedSubnet возвращает CIDR доверенной подсети.
+func (c *Config) TrustedSubnet() string {
+	return c.parameters.TrustedSubnet
 }

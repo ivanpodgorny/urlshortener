@@ -101,6 +101,25 @@ func TestMemoryOnly(t *testing.T) {
 	assert.ErrorIs(t, err, inerr.ErrURLIsDeleted, "получение удаленной записи")
 }
 
+func TestMemory_GetStat(t *testing.T) {
+	var (
+		ctx = context.Background()
+		s   = NewMemory(nil)
+	)
+
+	_, err := s.Add(ctx, "id1", "https://ya.ru/", "userID1")
+	require.NoError(t, err)
+	_, err = s.Add(ctx, "id2", "https://google.com/", "userID1")
+	require.NoError(t, err)
+	_, err = s.Add(ctx, "id3", "https://practicum.yandex.ru/", "userID2")
+	require.NoError(t, err)
+
+	urlCount, usersCount, err := s.GetStat(ctx)
+	assert.NoError(t, err)
+	assert.Equal(t, 3, urlCount)
+	assert.Equal(t, 2, usersCount)
+}
+
 func createFileStorage(t *testing.T, filename string) (*Memory, *os.File) {
 	file, err := os.OpenFile(filename, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0600)
 	require.NoError(t, err, "не удалось создать файл")
